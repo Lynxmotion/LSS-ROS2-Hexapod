@@ -1,0 +1,94 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 50  # Hz
+    diagnostic_period: 1
+
+    effort_controller:
+      type: forward_command_controller/ForwardCommandController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    position_trajectory_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+effort_controller:
+  ros__parameters:
+    joints:
+      - J11
+      - J12
+      - J13
+      - J21
+      - J22
+      - J23
+      - J31
+      - J32
+      - J33
+      - J41
+      - J42
+      - J43
+      - J51
+      - J52
+      - J53
+      - J61
+      - J62
+      - J63
+    interface_name: effort
+
+position_trajectory_controller:
+  ros__parameters:
+    joints:
+      - J11
+      - J12
+      - J13
+      - J21
+      - J22
+      - J23
+      - J31
+      - J32
+      - J33
+      - J41
+      - J42
+      - J43
+      - J51
+      - J52
+      - J53
+      - J61
+      - J62
+      - J63
+    command_interfaces: [position]
+    state_interfaces: [position]
+
+
+robot_dynamics:
+  ros__parameters:
+    frequency: 30.0
+    model_state_frequency: 10.0
+    self_manage: true
+    leg_support_distance: 0.2
+    joint_states: joint_states
+    odometry: /odom_raw
+    joint_controller: position_trajectory_controller
+    effort_controller: /effort_controller/commands
+    joint_names:
+      - J11
+      - J12
+      - J13
+      - J21
+      - J22
+      - J23
+      - J31
+      - J32
+      - J33
+      - J41
+      - J42
+      - J43
+      - J51
+      - J52
+      - J53
+      - J61
+      - J62
+      - J63
+    chain0: "[leg] base_link => r_sole"
+    chain1: "[leg] base_link => l_sole"
+

@@ -1,0 +1,147 @@
+<?xml version="1.0" ?>
+<robot name="lss_hexapod">
+
+	<group name="left_front_leg">
+        <joint name="J63" />
+        <joint name="J62" />
+        <joint name="J61" />
+        <chain base_link="base_link" tip_link="left-front-foot" />
+    </group>
+    <group name="left_middle_leg">
+        <joint name="J53" />
+        <joint name="J52" />
+        <joint name="J51" />
+        <chain base_link="base_link" tip_link="left-middle-foot" />
+    </group>
+    <group name="left_back_leg">
+        <joint name="J43" />
+        <joint name="J42" />
+        <joint name="J41" />
+        <chain base_link="base_link" tip_link="left-back-foot" />
+    </group>
+
+    <group name="right_front_leg">
+        <joint name="J33" />
+        <joint name="J32" />
+        <joint name="J31" />
+        <chain base_link="base_link" tip_link="right-front-foot" />
+    </group>
+    <group name="right_middle_leg">
+        <joint name="J23" />
+        <joint name="J22" />
+        <joint name="J21" />
+        <chain base_link="base_link" tip_link="right-middle-foot" />
+    </group>
+    <group name="right_back_leg">
+        <joint name="J13" />
+        <joint name="J12" />
+        <joint name="J11" />
+        <chain base_link="base_link" tip_link="right-back-foot" />
+    </group>
+
+    <group name="left_legs">
+        <group name="left_front_leg" />
+        <group name="left_middle_leg" />
+        <group name="left_back_leg" />
+    </group>
+    <group name="right_legs">
+        <group name="right_front_leg" />
+        <group name="right_middle_leg" />
+        <group name="right_back_leg" />
+    </group>
+    <group name="all">
+        <group name="left_front_leg" />
+        <group name="left_middle_leg" />
+        <group name="left_back_leg" />
+        <group name="right_front_leg" />
+        <group name="right_middle_leg" />
+        <group name="right_back_leg" />
+    </group>
+
+    <end_effector name="left-front-foot" parent_link="left-front-foot" group="left_front_leg" />
+    <end_effector name="left-middle-foot" parent_link="left-middle-foot" group="left_middle_leg" />
+    <end_effector name="left-back-foot" parent_link="left-back-foot" group="left_back_leg" />
+    <end_effector name="right-front-foot" parent_link="right-front-foot" group="right_front_leg" />
+    <end_effector name="right-middle-foot" parent_link="right-middle-foot" group="right_middle_leg" />
+    <end_effector name="right-back-foot" parent_link="right-back-foot" group="right_back_leg" />
+
+    <rotor_params>
+        <joint name="J11" mass="1.0" gear_ratio="1.0" />
+        <joint name="J12" mass="1.0" gear_ratio="1.0" />
+        <joint name="J13" mass="1.0" gear_ratio="1.0" />
+        <joint name="J21" mass="1.0" gear_ratio="1.0" />
+        <joint name="J22" mass="1.0" gear_ratio="1.0" />
+        <joint name="J23" mass="1.0" gear_ratio="1.0" />
+        <joint name="J31" mass="1.0" gear_ratio="1.0" />
+        <joint name="J32" mass="1.0" gear_ratio="1.0" />
+        <joint name="J33" mass="1.0" gear_ratio="1.0" />
+
+        <joint name="J41" mass="1.0" gear_ratio="1.0" />
+        <joint name="J42" mass="1.0" gear_ratio="1.0" />
+        <joint name="J43" mass="1.0" gear_ratio="1.0" />
+        <joint name="J51" mass="1.0" gear_ratio="1.0" />
+        <joint name="J52" mass="1.0" gear_ratio="1.0" />
+        <joint name="J53" mass="1.0" gear_ratio="1.0" />
+        <joint name="J61" mass="1.0" gear_ratio="1.0" />
+        <joint name="J62" mass="1.0" gear_ratio="1.0" />
+        <joint name="J63" mass="1.0" gear_ratio="1.0" />
+    </rotor_params>
+
+    <!-- will need to update for Gazebo, but will depend on our collision models
+    <disable_collisions link1="base_link" link2="LShoulder" reason="Adjacent" />
+    <disable_collisions link1="LShoulder" link2="LHumerus" reason="Adjacent" />
+    <disable_collisions link1="LHumerus" link2="LRadius" reason="Adjacent" />
+
+    <disable_collisions link1="base_link" link2="RShoulder" reason="Adjacent" />
+    <disable_collisions link1="RShoulder" link2="RHumerus" reason="Adjacent" />
+    <disable_collisions link1="RHumerus" link2="RRadius" reason="Adjacent" />
+
+    <disable_collisions link1="base_link" link2="LHipYaw" reason="Adjacent" />
+    <disable_collisions link1="LHipYaw" link2="LHipRoll" reason="Adjacent" />
+    <disable_collisions link1="LHipRoll" link2="LHipPitch" reason="Adjacent" />
+    <disable_collisions link1="LHipYaw" link2="LHipPitch" reason="Adjacent" />
+    <disable_collisions link1="LHipPitch" link2="LKnee" reason="Adjacent" />
+    <disable_collisions link1="LKnee" link2="LFootPitch" reason="Adjacent" />
+    <disable_collisions link1="LFootPitch" link2="l_sole" reason="Adjacent" />
+    <disable_collisions link1="LKnee" link2="l_sole" reason="Adjacent" />
+
+    <disable_collisions link1="base_link" link2="RHipYaw" reason="Adjacent" />
+    <disable_collisions link1="RHipYaw" link2="RHipRoll" reason="Adjacent" />
+    <disable_collisions link1="RHipRoll" link2="RHipPitch" reason="Adjacent" />
+    <disable_collisions link1="RHipYaw" link2="RHipPitch" reason="Adjacent" />
+    <disable_collisions link1="RHipPitch" link2="RKnee" reason="Adjacent" />
+    <disable_collisions link1="RKnee" link2="RFootPitch" reason="Adjacent" />
+    <disable_collisions link1="RFootPitch" link2="r_sole" reason="Adjacent" />
+    <disable_collisions link1="RKnee" link2="r_sole" reason="Adjacent" />
+    -->
+
+    <group_state group="all" name="default">
+        <joint name="root_link" value="0 0 0.18 0. 0. 0. 0." />
+        <joint name="J11" value="0.0" />
+        <joint name="J12" value="0.0" />
+        <joint name="J13" value="0.0" />
+
+        <joint name="J21" value="0.0" />
+        <joint name="J22" value="0.0" />
+        <joint name="J23" value="0.0" />
+
+        <joint name="J31" value="0.0" />
+        <joint name="J32" value="0.0" />
+        <joint name="J33" value="0.0" />
+
+        <joint name="J41" value="0.0" />
+        <joint name="J42" value="0.0" />
+        <joint name="J43" value="0.0" />
+
+        <joint name="J51" value="0.0" />
+        <joint name="J52" value="0.0" />
+        <joint name="J53" value="0.0" />
+
+        <joint name="J61" value="0.0" />
+        <joint name="J62" value="0.0" />
+        <joint name="J63" value="0.0" />
+
+    </group_state>
+
+</robot>
+

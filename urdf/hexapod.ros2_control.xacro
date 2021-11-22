@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="hex" value="${load_yaml('./hexapod.yaml')}" />
+
+  <xacro:macro name="lss_hexapod_hardware_position">
+    <ros2_control name="HexapodInterface" type="system">
+      <hardware>
+        <plugin>lynxmotion/LssBus</plugin>
+        <param name="port">/dev/ttyAMA1</param>
+        <param name="baudrate">921600</param>
+        <param name="prefix">J</param>
+      </hardware>
+	<xacro:macro name="hexjoint" params="name profile:=default">
+	<joint name="${name}">
+        <command_interface name="position">
+          <param name="min">${hex.profiles[profile].limits.min}</param>
+          <param name="max">${hex.profiles[profile].limits.max}</param>
+        </command_interface>
+        <state_interface name="position"/>
+        <state_interface name="effort"/>
+        <state_interface name="current"/>
+      </joint>
+      </xacro:macro>
+
+      <xacro:hexjoint name="J11" profile="hip" />
+      <xacro:hexjoint name="J12" profile="trochanter" />
+      <xacro:hexjoint name="J13" profile="patella" />
+
+      <xacro:hexjoint name="J21" profile="hip" />
+      <xacro:hexjoint name="J22" profile="trochanter" />
+      <xacro:hexjoint name="J23" profile="patella" />
+
+      <xacro:hexjoint name="J31" profile="hip" />
+      <xacro:hexjoint name="J32" profile="trochanter" />
+      <xacro:hexjoint name="J33" profile="patella" />
+
+      <xacro:hexjoint name="J41" profile="hip" />
+      <xacro:hexjoint name="J42" profile="trochanter" />
+      <xacro:hexjoint name="J43" profile="patella" />
+
+      <xacro:hexjoint name="J51" profile="hip" />
+      <xacro:hexjoint name="J52" profile="trochanter" />
+      <xacro:hexjoint name="J53" profile="patella" />
+
+      <xacro:hexjoint name="J61" profile="hip" />
+      <xacro:hexjoint name="J62" profile="trochanter" />
+      <xacro:hexjoint name="J63" profile="patella" />
+
+    </ros2_control>
+  </xacro:macro>
+
+</robot>
+

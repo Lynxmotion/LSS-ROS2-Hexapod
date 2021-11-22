@@ -1,0 +1,35 @@
+<package format="2">
+  <name>lss_hexapod</name>
+  <version>1.0.0</version>
+  <description>
+    <p>URDF Description package for Hexapod</p>
+    <p>This package contains configuration data, 3D models and launch files
+for SES v2 Hexapod Kit</p>
+  </description>
+  <author>colin@flyingeinstein.com</author>
+  <maintainer email="colin@flyingeinstein.com" />
+  <license>BSD</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+
+  <export>
+     <build_type>ament_cmake</build_type>
+     <gazebo_ros gazebo_plugin_path="${prefix}/lib" />
+     <gazebo_ros gazebo_model_path="${prefix}/.." />
+    <gazebo_ros gazebo_media_path="${prefix}/worlds" />
+  </export>
+</package>

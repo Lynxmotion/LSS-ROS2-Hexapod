@@ -1,0 +1,479 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="lss_hexapod">
+
+  <xacro:arg name="target" default="rviz" />
+
+  <xacro:arg name="mu1" default="247.75" />
+  <xacro:arg name="mu2" default="428.9" />
+  <xacro:arg name="kp" default="11758" />
+  <xacro:arg name="kd" default="618" />
+
+  <xacro:property name="target" value="$(arg target)" />
+
+  <xacro:property name="ros2_controls" value="false" />
+
+  <xacro:property name="mu1" value="$(arg mu1)" />
+  <xacro:property name="mu2" value="$(arg mu2)" />
+  <xacro:property name="kp" value="$(arg kp)" />
+  <xacro:property name="kd" value="$(arg kd)" />
+
+  <xacro:include filename="$(find lss_humanoid)/urdf/lss.xacro" />
+  <xacro:include filename="hexapod.ros2_control.xacro" />
+
+  <material name="black">
+    <color rgba="0.0 0.0 0.0 1.0"/>
+  </material>
+  <material name="dark">
+    <color rgba="0.3 0.3 0.3 1.0"/>
+  </material>
+  <material name="light_black">
+    <color rgba="0.4 0.4 0.4 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0.0 0.0 0.8 1.0"/>
+  </material>
+  <material name="green">
+    <color rgba="0.0 0.8 0.0 1.0"/>
+  </material>
+  <material name="grey">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+  <material name="orange">
+    <color rgba="1.0 0.4235294117647059 0.0392156862745098 1.0"/>
+  </material>
+  <material name="brown">
+    <color rgba="0.8705882352941177 0.8117647058823529 0.7647058823529411 1.0"/>
+  </material>
+  <material name="red">
+    <color rgba="0.8 0.0 0.0 1.0"/>
+  </material>
+  <material name="white">
+    <color rgba="1.0 1.0 1.0 1.0"/>
+  </material>
+  <material name="acrylic">
+    <color rgba="0.9 0.9 1.0 0.6"/>
+  </material>
+
+  <!-- Used for fixing robot -->
+  <gazebo reference="world">
+    <static>true</static>
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so" />
+  </gazebo>
+
+  <xacro:if value="${target == 'rviz'}">
+    <link name="world" />
+    <link name="odom" />
+    <joint name="world_to_odom" type="fixed">
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <parent link="world"/>
+      <child link="odom"/>
+    </joint>
+    <joint name="odom_baselink" type="fixed">
+      <origin rpy="0 0 0" xyz="0 0 0.044"/>
+      <parent link="odom"/>
+      <child link="base_link"/>
+    </joint>
+  </xacro:if>
+
+  <link name="base_link">
+  </link>
+
+  <joint name="base_topplate" type="fixed">
+    <parent link="base_link" />
+    <child link="top_plate" />
+    <origin xyz="0 0 0" />
+  </joint>
+  <joint name="base_bottomplate" type="fixed">
+    <parent link="base_link" />
+    <child link="bottom_plate" />
+    <origin xyz="0 0 -0.0365" />
+  </joint>
+
+  <link name="top_plate">
+    <inertial>
+      <origin
+              xyz="0 0 0"
+              rpy="0 0 0" />
+      <mass
+              value="0.355132365146695" />
+      <inertia
+              ixx="0"
+              ixy="0"
+              ixz="0"
+              iyy="0"
+              iyz="0"
+              izz="0" />
+    </inertial>
+    <visual>
+      <origin
+              xyz="-0.0744467 -0.0922254 0.00150678"
+              rpy="-1.57078 0 0" />
+      <geometry>
+        <mesh filename="package://lss_hexapod/meshes/SES-V2-Hexapod-Center-Frame.stl" />
+      </geometry>
+      <material name="dark" />
+    </visual>
+    <collision>
+      <origin
+              xyz="-0.0744467 -0.0922254 0.00150678"
+              rpy="-1.57078 0 0" />
+      <geometry>
+        <mesh filename="package://lss_hexapod/meshes/SES-V2-Hexapod-Center-Frame.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+
+  <link name="bottom_plate">
+    <inertial>
+      <origin
+              xyz="0 0 0"
+              rpy="0 0 0" />
+      <mass
+              value="0.355132365146695" />
+      <inertia
+              ixx="0"
+              ixy="0"
+              ixz="0"
+              iyy="0"
+              iyz="0"
+              izz="0" />
+    </inertial>
+    <visual>
+      <origin
+              xyz="-0.0744467 -0.0922254 0.00150678"
+              rpy="-1.57078 0 0" />
+      <geometry>
+        <mesh filename="package://lss_hexapod/meshes/SES-V2-Hexapod-Center-Frame.stl" />
+      </geometry>
+      <material name="dark" />
+    </visual>
+    <collision>
+      <origin
+              xyz="-0.0744467 -0.0922254 0.00150678"
+              rpy="-1.57078 0 0" />
+      <geometry>
+        <mesh filename="package://lss_hexapod/meshes/SES-V2-Hexapod-Center-Frame.stl" />
+      </geometry>
+    </collision>
+  </link>
+
+
+  <xacro:imu-link parent="base_link">
+    <origin
+            xyz="0 0 0.01"
+            rpy="0 0 0"
+    />
+  </xacro:imu-link>
+
+
+  <xacro:macro
+          name="leg-3dof"
+          params="name parent hip lift knee mirror=false *origin"
+  >
+    <xacro:ST1
+            name="${hip}"
+            parent="${parent}"
+            child="${name}-hip-span1"
+    >
+      <xacro:insert_block name="origin" />
+    </xacro:ST1>
+
+    <link name="${name}-hip-span1">
+      <inertial>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <mass
+                value="0.355132365146695" />
+        <inertia
+                ixx="0"
+                ixy="0"
+                ixz="0"
+                iyy="0"
+                iyz="0"
+                izz="0" />
+      </inertial>
+      <visual>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-39-A-1.stl" />
+        </geometry>
+        <material name="dark" />
+      </visual>
+      <collision>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-39-A-1.stl" />
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}-hip-span_1_2" type="fixed">
+      <parent link="${name}-hip-span1" />
+      <child link="${name}-hip-span2" />
+      <origin xyz="0.035 0 0" />
+    </joint>
+
+    <link name="${name}-hip-span2">
+      <inertial>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <mass
+                value="0.355132365146695" />
+        <inertia
+                ixx="0"
+                ixy="0"
+                ixz="0"
+                iyy="0"
+                iyz="0"
+                izz="0" />
+      </inertial>
+      <visual>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-30-C-1.stl" />
+        </geometry>
+        <material name="dark" />
+      </visual>
+      <collision>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-30-C-1.stl" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <xacro:ST1
+            name="${lift}"
+            parent="${name}-hip-span2"
+            child="${name}-upper-leg-span1"
+            mirror="${mirror}"
+            offset="0.315"
+    >
+      <origin
+              xyz="0.016 0.0128 -0.02"
+              rpy="3.14 1.57078 0" />
+    </xacro:ST1>
+
+    <link name="${name}-upper-leg-span1">
+      <inertial>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <mass
+                value="0.355132365146695" />
+        <inertia
+                ixx="0"
+                ixy="0"
+                ixz="0"
+                iyy="0"
+                iyz="0"
+                izz="0" />
+      </inertial>
+      <visual>
+        <origin
+                xyz="0 0 0"
+                rpy="0 1.57078 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-40-A-1.stl" />
+        </geometry>
+        <material name="dark" />
+      </visual>
+      <collision>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-40-A-1.stl" />
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}-upper-leg_1_2" type="fixed">
+      <parent link="${name}-upper-leg-span1" />
+      <child link="${name}-upper-leg-span2" />
+      <origin xyz="0 0 -0.0505" />
+    </joint>
+
+    <link name="${name}-upper-leg-span2">
+      <inertial>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <mass
+                value="0.355132365146695" />
+        <inertia
+                ixx="0"
+                ixy="0"
+                ixz="0"
+                iyy="0"
+                iyz="0"
+                izz="0" />
+      </inertial>
+      <visual>
+        <origin
+                xyz="0 0 0"
+                rpy="-1.57078 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-37-C-1.stl" />
+        </geometry>
+        <material name="dark" />
+      </visual>
+      <collision>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-37-C-1.stl" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <xacro:ST1
+            name="${knee}"
+            parent="${name}-upper-leg-span2"
+            child="${name}-lower-leg-span1"
+            mirror="${mirror}"
+            reverse="True"
+    >
+      <origin
+              xyz="0.0253 0.0188 -0.025"
+              rpy="-1.894 0.0 1.57078" />
+    </xacro:ST1>
+
+
+
+    <link name="${name}-lower-leg-span1">
+      <inertial>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <mass
+                value="0.355132365146695" />
+        <inertia
+                ixx="0"
+                ixy="0"
+                ixz="0"
+                iyy="0"
+                iyz="0"
+                izz="0" />
+      </inertial>
+      <visual>
+        <origin
+                xyz="0.0158 0 0"
+                rpy="-1.57078 3.14156 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-28-C-1.stl" />
+        </geometry>
+        <material name="dark" />
+      </visual>
+      <collision>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/ASB-28-C-1.stl" />
+        </geometry>
+      </collision>
+    </link>
+
+
+    <joint name="${name}-foot-span" type="fixed">
+      <parent link="${name}-lower-leg-span1" />
+      <child link="${name}-foot-tip" />
+      <origin xyz="0.0871 0 0" />
+    </joint>
+
+    <link name="${name}-foot-tip">
+      <inertial>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <mass
+                value="0.355132365146695" />
+        <inertia
+                ixx="0"
+                ixy="0"
+                ixz="0"
+                iyy="0"
+                iyz="0"
+                izz="0" />
+      </inertial>
+      <visual>
+        <origin
+                xyz="-0.005 0 0"
+                rpy="0 -1.57078 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/CF-Foot.dae" />
+        </geometry>
+        <material name="dark" />
+      </visual>
+      <collision>
+        <origin
+                xyz="0 0 0"
+                rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://lss_hexapod/meshes/CF-Foot.dae" />
+        </geometry>
+      </collision>
+    </link>
+
+    <xacro:manipulator_joint
+            name="${name}-foot"
+            parent="${name}-foot-tip"
+            R="1"
+            P="1"
+    >
+      <origin
+              xyz="0 0 0"
+              rpy="0 0 0" />
+    </xacro:manipulator_joint>
+  </xacro:macro>
+
+
+  <xacro:leg-3dof name="left-front" parent="base_link" hip="J61" lift="J62" knee="J63">
+    <origin xyz="0.0462 -0.068 -0.0365"
+            rpy="0 1.57078 -2.54156" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="left-middle" parent="base_link" hip="J51" lift="J52" knee="J53">
+    <origin xyz="0.055 0 -0.0365"
+            rpy="0 1.57078 -1.57078" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="left-back" parent="base_link" hip="J41" lift="J42" knee="J43">
+    <origin xyz="0.0462 0.068 -0.0365"
+            rpy="0 1.57078 -0.600" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="right-front" parent="base_link" mirror="True" hip="J31" lift="J32" knee="J33">
+    <origin xyz="-0.0462 -0.068 -0.0365"
+            rpy="0 1.57078 2.54156" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="right-middle" parent="base_link" mirror="True" hip="J21" lift="J22" knee="J23">
+    <origin xyz="-0.055 0 -0.0365"
+            rpy="0 1.57078 1.57078" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="right-back" parent="base_link" mirror="True" hip="J11" lift="J12" knee="J13">
+    <origin xyz="-0.0462 0.068 -0.0365"
+            rpy="0 1.57078 0.600" />
+  </xacro:leg-3dof>
+
+  <xacro:if value="${ros2_controls}">
+    <xacro:lss_hexapod_hardware_position />
+  </xacro:if>
+</robot>
