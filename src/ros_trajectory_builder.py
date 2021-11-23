@@ -56,6 +56,7 @@ class Event(list):
     def __repr__(self):
         return "Event(%s)" % list.__repr__(self)
 
+
 def euler_to_quat(r, p, y):
     sr, sp, sy = np.sin(r/2.0), np.sin(p/2.0), np.sin(y/2.0)
     cr, cp, cy = np.cos(r/2.0), np.cos(p/2.0), np.cos(y/2.0)
@@ -63,6 +64,7 @@ def euler_to_quat(r, p, y):
             cr*sp*cy + sr*cp*sy,
             cr*cp*sy - sr*sp*cy,
             cr*cp*cy + sr*sp*sy]
+
 
 def urdf_pose_to_kdl_frame(pose):
     pos = [0., 0., 0.]
@@ -74,6 +76,7 @@ def urdf_pose_to_kdl_frame(pose):
             rot = pose.rotation
     return kdl.Frame(kdl.Rotation.Quaternion(*euler_to_quat(*rot)),
                      kdl.Vector(*pos))
+
 
 def urdf_joint_to_kdl_joint(jnt):
     origin_frame = urdf_pose_to_kdl_frame(jnt.origin)
@@ -115,6 +118,7 @@ def joint_list_to_kdl(q):
         q_kdl[i] = q_i
     return q_kdl
 
+
 ##
 # Returns a PyKDL.Tree generated from a urdf_parser_py.urdf.URDF object.
 def kdl_tree_from_urdf_model(urdf):
@@ -137,6 +141,33 @@ def kdl_tree_from_urdf_model(urdf):
                 add_children_to_tree(child_name)
     add_children_to_tree(root)
     return tree
+
+
+def default_segment_trajectory_msg(
+        segment: str, start: float = 0.0, id: str = None,
+        velocity: float = 1.0, reference_frame: str = 'base_link', points: [] = None,
+        rotations: [] = None):
+    t = SegmentTrajectory()
+    t.start.sec = int(start)
+    t.start.nanosec = int((start - t.start.sec) * 1000000000)
+    if id:
+        t.id = id
+    t.segment = segment
+    t.profile = 'velocity/trap'
+    t.velocity = velocity
+    t.acceleration = 0.1
+    t.path = 'rounded'
+    t.reference_frame = reference_frame
+    t.coordinate_mode = 0
+    # if points:
+    #    t.points = [to_vector3(f) for f in points]
+    # if rotations:
+    #    t.rotations = [to_quaternion(r) for r in rotations]
+    if points:
+        t.points = points
+    if rotations:
+        t.rotations = rotations
+    return t
 
 
 class TrajectoryBuilder(Node):
