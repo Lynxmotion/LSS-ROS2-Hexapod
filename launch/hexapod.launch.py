@@ -55,7 +55,7 @@ def generate_launch_description():
     localization = Node(
         name='localization',
         package='robot_localization',
-        executable='se_node',
+        executable='ekf_node',
         output='screen',
         parameters=[presence_config],
         remappings=[
