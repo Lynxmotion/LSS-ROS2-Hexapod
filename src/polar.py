@@ -13,7 +13,7 @@ class PolarCoord:
     distance: float
     zlocal: float           # z is optional and part of the rectangular coordinate system
 
-    def __init__(self, angle: float, distance: float, z: float = 0.0, origin=None):
+    def __init__(self, angle: float, distance: float, z: float = math.nan, origin=None):
         self.origin = origin if origin else kdl.Vector(0, 0, 0)
         self.angle = angle
         self.distance = distance
@@ -51,7 +51,7 @@ class PolarCoord:
 
     @property
     def z(self):
-        return self.origin[2] + self.zlocal
+        return self.origin[2] + self.zlocal if not math.isnan(self.zlocal) else 0.0
 
     def to_xyz(self):
         return self.x, self.y, self.z

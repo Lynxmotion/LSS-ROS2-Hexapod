@@ -2,7 +2,7 @@ import math
 import typing
 
 import PyKDL as kdl
-from tf_conv import to_vector3, P, R
+from tf_conv import to_vector3, P, R, to_quaternion
 
 from polar import PolarCoord
 from tween import Tween
@@ -44,8 +44,9 @@ def tripod_set(ordinal: int,
 
 class Leg:
     IDLE = 0
-    LIFTING = 1
-    SUPPORTING = 2
+    MOVING = 1
+    LIFTING = 2
+    SUPPORTING = 3
 
     name: str = None
     foot_link: str = None
@@ -83,6 +84,10 @@ class Leg:
 
         # compute the origin angle of the leg (it's neutral heading)
         self.origin_angle = math.atan2(origin.p[1], origin.p[0])
+
+
+    def tick(self, state: dict):
+        pass
 
     def to_polar(self, rect: kdl.Vector, base_pose: kdl.Frame = None) -> PolarCoord:
         if not base_pose:
@@ -139,7 +144,10 @@ class Leg:
         duration = 2.0
 
         fr = self.polar()
-        #print(f'lift leg {self.name} from {fr} => {polar}')
+
+        print(f'lift leg {self.name} from {fr} => {polar}')
+        if math.isnan(polar.zlocal):
+            polar.zlocal = fr.zlocal
         tw_dist = Tween(fr, polar)
 
         # a helper function to tween between current leg position and target position [0 - 1.]
@@ -163,7 +171,8 @@ class Leg:
 
         return default_segment_trajectory_msg(
             self.foot_link,
+            id='lift-leg',
             velocity=2.0,
             reference_frame='base_link',
             points=[get_point(d/10) for d in range(1, 11)],
-            rotations=[R(0., 0., 0., 1.)])
+            rotations=[to_quaternion(self.rect.M)])
