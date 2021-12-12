@@ -69,7 +69,7 @@ class Leg:
     neutral_distance = 0.1    # distance from hip joint (center of polar coord)
 
     # walking limits
-    lift_max = 0.04
+    lift_max = 0.02
     walking_min = -0.1
     walking_max = -0.1
 

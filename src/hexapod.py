@@ -96,6 +96,7 @@ class Hexapod(Node):
     base_sitting_z = 0.042
 
     heading = 0
+    target_heading = math.inf
 
     # odom => base transform
     odom: kdl.Frame
@@ -111,7 +112,10 @@ class Hexapod(Node):
 
     gait: typing.Callable = None
     gait_state = 0
+    gait_points: []
+    gait_n: int
     neutral_offset = 0.5
+    neutral_radius = 0.12
 
     timestep = 0
 
@@ -287,6 +291,12 @@ class Hexapod(Node):
             self.odom = self.state.get_frame(self.odom_link)
             self.base_pose = self.state.get_frame(self.base_link)
 
+            # get the robot heading
+            rz, ry, rx = self.base_pose.M.GetEulerZYX()
+            self.heading = rz
+            #if math.isinf(self.target_heading):
+            #    self.target_heading = self.heading
+
             # update the Leg positions
             for leg in self.legs.values():
                 leg.rect = self.state.get_frame_rel(leg.foot_link)
@@ -304,6 +314,8 @@ class Hexapod(Node):
                 #    leg.polar = polar
 
     def model_state_callback(self, msg: ModelState):
+        if not self.legs:
+            return
         # simply store model state until next IMU message
         expected_frame_id = 'preview/'+self.odom_link if self.previewMode else self.odom_link
         if msg.header.frame_id == expected_frame_id:
@@ -311,7 +323,9 @@ class Hexapod(Node):
             self.CoP = to_kdl_vector(self.model_state.contact.center_of_pressure)
 
             # get position of support legs relative to odom frame
-            support_legs = [self.base_pose * l.rect for l_name, l in self.legs.items() if l.state == Leg.SUPPORTING]
+            #support_legs = [self.base_pose * l.rect for l_name, l in self.legs.items() if l.state == Leg.SUPPORTING]
+            support_legs = [self.base_pose * l.rect for l in self.legs.values() if
+                              l.name in self.tripod_set[self.tripod_set_supporting]]
 
             # now make triangles between each pair of support legs and the CoP,
             # figure out what the min(hyp) is of the triangles.
@@ -439,13 +453,18 @@ class Hexapod(Node):
         else:
             on_complete = complete
 
+        if reference_frame == self.base_link:
+            rot = self.base_pose.M
+        elif reference_frame == self.odom_link:
+            rot = kdl.Rotation()
+
         traj = default_segment_trajectory_msg(
             leg.foot_link,
             id='move-leg',
             velocity=2.0,
             reference_frame=reference_frame,
             points=[to_vector3(point)],
-            rotations=[])
+            rotations=[to_quaternion(rot)])
 
         leg.state = Leg.LIFTING
         print(f'leg lift: {traj.segment}')
@@ -454,16 +473,19 @@ class Hexapod(Node):
     # change the leg to a supportive mode
     # if point is a kdl.Frame it must be relative to the odom frame. If no point is
     # given then the current position as recorded by tf state is used.
+    # todo: this shouldnt be used not since we dont switch reference frames anymore
     def support_leg(self, leg: Leg or str, point: (PolarCoord or kdl.Frame) = None):
         if not point:
             point = self.state.get_frame_rel(leg.foot_link, relative_to=self.odom_link)
         elif isinstance(point, PolarCoord):
-            point = kdl.Frame(kdl.Rotation(), leg.to_rect(point, self.base_pose))
+            #point = kdl.Frame(self.base_pose.M, leg.to_rect(point, self.base_pose))
+            point = leg.to_rect(point)
+            point = self.base_pose * point
+            #point = kdl.Frame(self.base_pose.M, leg.to_rect(point, self.base_pose))
         # resolve a support trajectory
         leg.state = Leg.SUPPORTING
         #point.p[2] = -self.base_pose.p[2] # - self.base_standing_z
         #-self.base_standing_z
-        print(f'support: {leg.name}  {point.p}')
         #leg.rect = self.base_pose.Inverse() * point     # store the updated rect relative to base
         support_mode = default_segment_trajectory_msg(
             leg.foot_link,
@@ -471,31 +493,56 @@ class Hexapod(Node):
             velocity=2.0,
             reference_frame=self.odom_link,
             points=[to_vector3(point.p)],
-            rotations=[])
+            rotations=[to_quaternion(point.M)])
         self.transmit_trajectory([support_mode])
 
-    def lift_leg(self, leg: Leg or str, to: PolarCoord):
+    def lift_leg(self, leg: Leg or str, to: PolarCoord, on_complete: typing.Callable = None):
         if isinstance(leg, str):
             leg = self.legs[leg]
 
         traj = leg.lift(to, self.base_pose, base_velocity=0.0)
 
-        def progress(p: TrajectoryProgress):
-            #print(f'   leg lift progress: {p.segment}  {p.progress*100:3.1f}% of {p.duration:3.2f}s')
-            pass
+        #def progress(p: TrajectoryProgress):
+        #    #print(f'   leg lift progress: {p.segment}  {p.progress*100:3.1f}% of {p.duration:3.2f}s')
+        #    pass
 
         def complete(r: TrajectoryComplete):
-            print(f'leg lift complete: {r.segment} {r.transform.translation}')
+            #print(f'leg lift complete: {r.segment} {r.transform.translation}')
             leg.state = Leg.SUPPORTING
             # use the ending position of the trajectory as the support position
             # but now specify it relative to the odom frame
             #point = self.base_pose * to_kdl_frame(r.transform)
-            point = to_kdl_frame(r.transform)
-            self.support_leg(leg, point)
+            #point = to_kdl_frame(r.transform)
+            #self.support_leg(leg, point)
+            if on_complete:
+                on_complete(r)
 
         leg.state = Leg.LIFTING
-        print(f'leg lift: {traj.segment}')
-        self.trajectory(traj, progress=progress, complete=complete)
+        self.trajectory(traj, complete=complete)
+
+    def stance_leg(self, leg: Leg or str):
+        if isinstance(leg, str):
+            leg = self.legs[leg]
+
+        # compute direction to move
+        foot = leg.rect
+        dest = leg.to_rect(PolarCoord(angle=0.4, distance=0.12))
+        delta = dest - foot.p
+        distance = math.sqrt(delta[0]*delta[0] + delta[1]*delta[1])
+        #distance = 0.5
+        polar = PolarCoord(angle=-math.pi/2, distance=distance)
+        cur = leg.polar()
+        print(f'stance: {leg.name}  {cur} => {polar}')
+
+        leg.state = Leg.SUPPORTING
+        support_mode = default_segment_trajectory_msg(
+            leg.foot_link,
+            id='stance-leg',
+            velocity=0.5,
+            reference_frame=self.base_link,
+            points=[P(foot.p[0] + polar.x, foot.p[1] + polar.y, leg.origin.p[2] - self.base_standing_z)],
+            rotations=[to_quaternion(leg.rect.M)])
+        self.transmit_trajectory([support_mode])
 
     def transmit_trajectory(self, tsegs, transform: kdl.Frame = None, mode=MultiSegmentTrajectory.INSERT):
         if type(tsegs) != list:
@@ -519,8 +566,8 @@ class Hexapod(Node):
         if self.base_pose:
             velocity = 0.0
             base_velocity = kdl.Vector(
-                velocity * math.cos(self.heading),
-                velocity * math.sin(self.heading),
+                velocity * math.cos(self.target_heading),
+                velocity * math.sin(self.target_heading),
                 0)
             base_pose = kdl.Frame()
 
@@ -560,14 +607,14 @@ class Hexapod(Node):
                     if leg.state == Leg.IDLE:
                         self.move_leg_to(
                             leg=leg,
-                            point=PolarCoord(leg.neutral_angle, 0.13, z=-self.base_standing_z),
+                            point=PolarCoord(leg.neutral_angle, self.neutral_radius, z=-self.base_standing_z),
                             reference_frame=self.base_link,
                             complete=Leg.SUPPORTING)
                     elif leg.state == Leg.SUPPORTING:
                         ready = ready + 1
                 if ready == len(self.legs):
-                    for leg in self.legs.values():
-                        self.support_leg(leg, PolarCoord(leg.neutral_angle, 0.13, z=-self.base_standing_z))
+                    #for leg in self.legs.values():
+                    #    self.support_leg(leg, PolarCoord(leg.neutral_angle, self.neutral_radius, z=-self.base_standing_z))
                     self.gait_state = Hexapod.WALKING
 
             elif self.gait_state == Hexapod.WALKING:
@@ -578,16 +625,66 @@ class Hexapod(Node):
                     [l.state == Leg.SUPPORTING for l in non_supporting]
                 )
 
-                if non_supportive_is_supporting:
-                    # perform a leg lift on the supportive set
+                #supportive_margin = [l for l in supporting if l.polar().angle < 0]
+
+                if non_supportive_is_supporting and self.support_margin < 0.1:
+                    # swap the supporting set
                     self.tripod_set_supporting = (self.tripod_set_supporting + 1) % 2
+
+                    # perform a leg lift on the supportive set
                     for leg in supporting:
                         to = PolarCoord(
                             angle=-0.4 + leg.neutral_angle,
-                            distance=0.128,
+                            distance=self.neutral_radius,
                             z=-self.base_standing_z)
+                        #leg.state = Leg.LIFTING
+                        #if leg.name == 'left-front':
                         self.lift_leg(leg, to)
 
+                    # perform stance move on what is now the new supporting set
+                    #dest = PolarCoord(angle=self.target_heading + math.pi/2, distance=0.2)
+                    #print(f'base to {dest.x}, {dest.y}    heading={self.target_heading * 180 / math.pi}  current heading={self.heading * 180 / math.pi}')
+                    for leg in non_supporting:
+                        #if leg.name == 'left-front':
+                        self.stance_leg(leg)
+
+    def test_gait(self):
+        if not hasattr(self, 'gait_points'):
+            self.gait_points = [
+                PolarCoord(angle=0.6, distance=0.15, z=-self.base_standing_z),
+                PolarCoord(angle=0.0, distance=0.15, z=-self.base_standing_z),
+                PolarCoord(angle=-0.6, distance=0.15, z=-self.base_standing_z)
+            ]
+            self.gait_n = len(self.gait_points)
+
+        def next_gait(r: TrajectoryComplete):
+            if self.gait_n + 1 < len(self.gait_points):
+                self.gait_n = self.gait_n + 1
+                self.lift_leg(leg, self.gait_points[self.gait_n], on_complete=next_gait)
+            else:
+                # wrap around, do a stance move
+                self.stance_leg(leg)
+
+        if self.base_pose and self.support_margin:
+            leg = self.legs['left-middle']
+
+            if self.gait_state == Hexapod.IDLE:
+                self.gait_state = Hexapod.WALKING
+                for l in self.legs.values():
+                    # move any IDLE legs to standing state
+                    if leg == l:
+                        next_gait(None)
+                    else:
+                        self.move_leg_to(
+                            leg=l,
+                            point=PolarCoord(l.neutral_angle, self.neutral_radius, z=-self.base_standing_z),
+                            reference_frame=self.base_link,
+                            complete=l.SUPPORTING)
+            else:
+                polar = leg.polar()
+                if leg.state == Leg.SUPPORTING and polar.angle > 0.6:
+                    self.gait_n = 0
+                    next_gait(None)
 
     def stand(self):
         print("stand")
@@ -608,27 +705,6 @@ class Hexapod(Node):
             P(0.0, 0.0, self.base_sitting_z)
         ]
         self.transmit_trajectory(t)
-
-    def move_base(self, heading: float, distance: float):
-        dest = PolarCoord(angle=heading, distance=distance)
-        def base_movement():
-            self.heading = heading
-            print(f'base to {dest.x}, {dest.y}    heading={heading * 180 / math.pi}')
-            t = default_segment_trajectory_msg(
-                self.base_link,
-                reference_frame=self.odom_link,
-                velocity=0.015,
-                points=[P(dest.x, dest.y, self.base_pose.p[2])],
-                rotations=[])
-            self.transmit_trajectory(t)
-        return base_movement
-
-    def move_heading(self, heading: float):
-        # a simple function for moving towards a heading
-        # the distance is chosen so that if we stop getting input then the robot will
-        # naturally slow to a stop over a short distance
-        self.heading = heading
-        return self.move_base(heading, 0.1)
 
     def move_leg(self, name: str, polar: PolarCoord, relative_frame: str):
         if not relative_frame:
@@ -662,13 +738,7 @@ class Hexapod(Node):
             trajectories = list()
             print("move legs local")
             for leg in self.resolve_legs(legs if legs else each_leg()):
-                foot_base: PolarCoord = leg.polar()
-                adjusted_to = PolarCoord(
-                    angle=to.angle + leg.neutral_angle,
-                    distance=to.distance,
-                    z=to.z
-                )
-                fr = leg.to_rect(adjusted_to)
+                fr = leg.to_rect(to, use_neutral=True)
                 #fr2 = leg.to_rect(adjusted_to, self.base_pose)
                 #print(f'leg {leg.name} to {foot_base.p[0]}, {foot_base.p[1]}, {foot_base.p[2]}')
                 t = default_segment_trajectory_msg(
@@ -726,7 +796,7 @@ class Hexapod(Node):
         self.tasks.extend([
             #WaitTask(0.5, init=self.enable_motors),
             WaitTask(1.7, init=self.move_legs_local(PolarCoord(0.0, 0.15, 0.02))),
-            #WaitTask(2.4, init=self.move_legs_local(PolarCoord(0.0, 0.13, -self.base_standing_z)))
+            WaitTask(2.4, init=self.move_legs_local(PolarCoord(0.0, 0.13, -self.base_standing_z)))
             #WaitTask(1.0, init=self.stand),
             #WaitTask(2.0, init=self.move_legs_local(PolarCoord(0.0, 0.15, -self.base_standing_z))),
             #WaitTask(2.5, init=self.disable_motors)
@@ -746,14 +816,12 @@ class Hexapod(Node):
     def enable_gait(self, gait: typing.Callable):
         def start_gait():
             self.gait = gait
-        return start_gait
+        return WaitTask(2.0, init=start_gait)
 
     def walk(self, heading: float, distance: float):
-        # heading and distance are turned into a base move trajectory
-        self.heading = heading   # todo: this is also set in the move_base callback
         self.tasks.extend([
-            WaitTask(2.0, init=self.move_base(heading=heading, distance=distance)),
-            WaitTask(2.0, init=self.enable_gait(gait=self.tripod_gait))
+            #WaitTask(2.0, init=self.move_base(heading=heading, distance=distance)),
+            self.enable_gait(gait=self.tripod_gait)
         ])
 
     def step(self, name: str, to: PolarCoord):
@@ -797,7 +865,8 @@ def main(args=sys.argv):
     node.stand_up()
     #node.merge_trajectory_test()
     #node.trajectory_test()
-    node.walk(-math.pi/2, 0.5)
+    node.walk(math.pi/2, 0.5)
+    #node.tasks.append(node.enable_gait(node.test_gait))
     node.run()
 
 
