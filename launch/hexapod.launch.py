@@ -84,7 +84,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         urdf_publisher,
-        localization,
+        #localization,
         #robot_dynamics_node,
         rviz_node
     ])
