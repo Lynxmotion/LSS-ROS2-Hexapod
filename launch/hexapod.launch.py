@@ -40,6 +40,10 @@ def generate_launch_description():
     )
     assert os.path.isfile(rviz_config)
 
+    # see this file for one way to start ros2 controllers
+    # https://github.com/ros-planning/moveit2/blob/main/moveit_ros/moveit_servo/launch/servo_cpp_interface_demo.launch.py
+
+
     # configure a publisher for the URDF
     urdf_publisher = Node(
         package='resource_publisher',
