@@ -121,6 +121,7 @@ class Hexapod(Node):
 
         self.state = RobotState()
         self.tasks = []
+        self.support_margin = 0.
 
         self.leg_neighbors = {
             'left-front': ['left-middle', 'right-front'],
@@ -359,6 +360,7 @@ class Hexapod(Node):
                 h.append(h1)
 
             min_h = reduce(lambda a, b: a if a < b else b, h)
+            self.support_margin = min_h
             #print(f'CoP: {self.model_state.header.frame_id} supporting:{len(support_legs)}:{len(leg_pairs)} margin:{min_h:6.4f}')
 
     def enable_motors(self):
@@ -541,14 +543,7 @@ class Hexapod(Node):
                     self.lift_leg(leg, to)
 
     def tripod_gait(self):
-        if self.base_pose:
-            velocity = 0.0
-            base_velocity = kdl.Vector(
-                velocity * math.cos(self.heading),
-                velocity * math.sin(self.heading),
-                0)
-            base_pose = kdl.Frame()
-
+        if self.base_pose and self.support_margin:
             # get leg sets
             non_supporting = [l for l in self.legs.values() if
                               l.name not in self.tripod_set[self.tripod_set_supporting]]
