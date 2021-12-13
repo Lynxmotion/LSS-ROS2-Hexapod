@@ -161,7 +161,7 @@
 
   <xacro:imu-link parent="base_link">
     <origin
-            xyz="0 0 0.01"
+            xyz="0 0.04 0.005"
             rpy="0 0 0"
     />
   </xacro:imu-link>
