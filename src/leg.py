@@ -89,7 +89,7 @@ class Leg:
     def tick(self, state: dict):
         pass
 
-    def to_polar(self, rect: kdl.Vector, base_pose: kdl.Frame = None) -> PolarCoord:
+    def to_polar(self, rect: kdl.Frame, base_pose: kdl.Frame = None) -> PolarCoord:
         if not base_pose:
             base_pose = kdl.Frame()
         if not rect:
@@ -112,9 +112,15 @@ class Leg:
         return coord
 
     # return the rectangular coordinates from the polar coordinates relative to the base_link
-    def to_rect(self, coord: PolarCoord, base_pose: kdl.Frame = None) -> kdl.Vector:
+    def to_rect(self, coord: PolarCoord, base_pose: kdl.Frame = None, use_neutral: bool = True) -> kdl.Vector:
         if not base_pose:
             base_pose = kdl.Frame()
+        if use_neutral:
+            coord = PolarCoord(
+                    angle=coord.angle + self.neutral_angle,
+                    distance=coord.distance,
+                    z=coord.z
+                )
         if self.reverse:
             coord = PolarCoord(angle=-coord.angle, distance=coord.distance, z=coord.z)
         #coord2 = PolarCoord(angle=coord.angle + self.origin_angle, distance=coord.distance, z=coord.z)
@@ -132,12 +138,12 @@ class Leg:
 
         # transform to be relative to base_link
         xx_base = base_pose.Inverse() * xx
-        coord_check = self.to_polar(xx_base, base_pose)
+        #coord_check = self.to_polar(xx_base, base_pose)
 
         return xx_base
 
     def polar(self, base_pose: kdl.Frame = None) -> PolarCoord:
-        return self.to_polar(self.rect.p, base_pose)
+        return self.to_polar(self.rect, base_pose)
 
     def lift(self, polar: PolarCoord, base_pose: kdl.Frame, base_velocity: kdl.Vector):
         # how long will it take our leg to complete the trajectory?
@@ -172,7 +178,7 @@ class Leg:
         return default_segment_trajectory_msg(
             self.foot_link,
             id='lift-leg',
-            velocity=2.0,
+            velocity=0.5,
             reference_frame='base_link',
             points=[get_point(d/10) for d in range(1, 11)],
             rotations=[to_quaternion(self.rect.M)])

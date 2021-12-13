@@ -15,6 +15,10 @@ class PolarCoord:
 
     def __init__(self, angle: float, distance: float, z: float = math.nan, origin=None):
         self.origin = origin if origin else kdl.Vector(0, 0, 0)
+        #while angle > 2*math.pi:
+        #    angle -= 2*math.pi
+        #while angle < 0:
+        #    angle += 2*math.pi
         self.angle = angle
         self.distance = distance
         self.zlocal = z
