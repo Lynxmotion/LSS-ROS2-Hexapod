@@ -444,33 +444,33 @@
 
 
   <xacro:leg-3dof name="left-front" parent="base_link" hip="J61" lift="J62" knee="J63">
-    <origin xyz="0.0462 -0.068 -0.0365"
-            rpy="0 1.57078 -2.54156" />
+    <origin xyz="-0.0462 0.068 -0.0365"
+            rpy="0 1.57078 0.600" />
   </xacro:leg-3dof>
 
   <xacro:leg-3dof name="left-middle" parent="base_link" hip="J51" lift="J52" knee="J53">
-    <origin xyz="0.055 0 -0.0365"
-            rpy="0 1.57078 -1.57078" />
-  </xacro:leg-3dof>
-
-  <xacro:leg-3dof name="left-back" parent="base_link" hip="J41" lift="J42" knee="J43">
-    <origin xyz="0.0462 0.068 -0.0365"
-            rpy="0 1.57078 -0.600" />
-  </xacro:leg-3dof>
-
-  <xacro:leg-3dof name="right-front" parent="base_link" mirror="True" hip="J31" lift="J32" knee="J33">
-    <origin xyz="-0.0462 -0.068 -0.0365"
-            rpy="0 1.57078 2.54156" />
-  </xacro:leg-3dof>
-
-  <xacro:leg-3dof name="right-middle" parent="base_link" mirror="True" hip="J21" lift="J22" knee="J23">
     <origin xyz="-0.055 0 -0.0365"
             rpy="0 1.57078 1.57078" />
   </xacro:leg-3dof>
 
+  <xacro:leg-3dof name="left-back" parent="base_link" hip="J41" lift="J42" knee="J43">
+    <origin xyz="-0.0462 -0.068 -0.0365"
+            rpy="0 1.57078 2.54156" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="right-front" parent="base_link" mirror="True" hip="J31" lift="J32" knee="J33">
+    <origin xyz="0.0462 0.068 -0.0365"
+            rpy="0 1.57078 -0.600" />
+  </xacro:leg-3dof>
+
+  <xacro:leg-3dof name="right-middle" parent="base_link" mirror="True" hip="J21" lift="J22" knee="J23">
+    <origin xyz="0.055 0 -0.0365"
+            rpy="0 1.57078 -1.57078" />
+  </xacro:leg-3dof>
+
   <xacro:leg-3dof name="right-back" parent="base_link" mirror="True" hip="J11" lift="J12" knee="J13">
-    <origin xyz="-0.0462 0.068 -0.0365"
-            rpy="0 1.57078 0.600" />
+    <origin xyz="0.0462 -0.068 -0.0365"
+            rpy="0 1.57078 -2.54156" />
   </xacro:leg-3dof>
 
   <xacro:if value="${ros2_controls}">
