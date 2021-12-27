@@ -9,7 +9,8 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
-from launch_ros.actions import Node, LifecycleNode
+from launch_ros.actions import Node, LifecycleNode, ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import ThisLaunchFileDir, LaunchConfiguration
 
@@ -30,6 +31,9 @@ def generate_launch_description():
 
     hexapod_config = Path(config_dir, 'hexapod.yaml')
     assert hexapod_config.is_file()
+
+    robot_dynamics_config = Path(config_dir, 'robot_dynamics.yaml')
+    assert robot_dynamics_config.is_file()
 
     presence_config = Path(config_dir, 'presence.yaml')
     assert presence_config.is_file()
@@ -74,6 +78,21 @@ def generate_launch_description():
         output='screen',
         parameters=[hexapod_config, {'sim-mode': False}]
     )
+    print(f'config is {hexapod_config}')
+    robot_dynamics_container = ComposableNodeContainer(
+            name='robot_dynamics_container',
+            namespace='',
+            package='rclcpp_components',
+            executable='component_container',
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='robot_dynamics',
+                    plugin='robot_dynamics::Dynamics',
+                    name='robot_dynamics',
+                    parameters=[robot_dynamics_config, {'sim-mode': False}])
+            ],
+            output='screen'
+    )
 
     # Robot Visualizer
     rviz_node = Node(
@@ -89,7 +108,7 @@ def generate_launch_description():
     return LaunchDescription([
         urdf_publisher,
         #localization,
-        #robot_dynamics_node,
+        robot_dynamics_container,
         rviz_node
     ])
 
