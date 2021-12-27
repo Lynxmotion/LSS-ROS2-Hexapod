@@ -12,8 +12,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 from tf2_msgs.msg import TFMessage
 from std_msgs.msg import Float64MultiArray
 from geometry_msgs.msg import Vector3
-from humanoid_model_msgs.msg import MultiSegmentTrajectory, ModelState, MultiTrajectoryProgress, TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
-from humanoid_model_msgs.action import EffectorTrajectory
+from robot_model_msgs.msg import MultiSegmentTrajectory, ModelState, MultiTrajectoryProgress, TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
+from robot_model_msgs.action import EffectorTrajectory
 
 from scipy.spatial import ConvexHull
 
@@ -320,7 +320,7 @@ class Hexapod(Node):
         expected_frame_id = 'preview/'+self.odom_link if self.previewMode else self.odom_link
         if msg.header.frame_id == expected_frame_id:
             self.model_state = msg
-            self.CoP = to_kdl_vector(self.model_state.contact.center_of_pressure)
+            self.CoP = to_kdl_vector(self.model_state.support.center_of_pressure)
 
             # get position of support legs relative to odom frame
             #support_legs = [self.base_pose * l.rect for l_name, l in self.legs.items() if l.state == Leg.SUPPORTING]
