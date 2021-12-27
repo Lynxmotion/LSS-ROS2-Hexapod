@@ -62,7 +62,7 @@ position_trajectory_controller:
 
 robot_dynamics:
   ros__parameters:
-    frequency: 30.0
+    frequency: 20.0
     model_state_frequency: 10.0
     self_manage: true
     leg_support_distance: 0.2
@@ -91,4 +91,9 @@ robot_dynamics:
       - J63
     chain0: "[leg] base_link => r_sole"
     chain1: "[leg] base_link => l_sole"
+
+robot_control:
+  ros__parameters:
+    frequency: 20.0
+    self_manage: true
 
