@@ -9,11 +9,10 @@ Panels:
         - /RobotModel1
         - /TF1/Frames1
         - /TF1/Tree1
-        - /Robot Dynamics1
+        - /Robot Target State1
+        - /Trajectory Preview1
         - /Robot Dynamics1/Namespaces1
-        - /Robot Control1
-        - /Robot Interaction1
-      Splitter Ratio: 0.4546875059604645
+      Splitter Ratio: 0.4545454680919647
     Tree Height: 1025
   - Class: rviz_common/Selection
     Name: Selection
@@ -49,6 +48,43 @@ Visualization Manager:
       Plane Cell Count: 75
       Reference Frame: <Fixed Frame>
       Value: true
+    - Alpha: 0.30000001192092896
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_description
+      Enabled: false
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
+      Value: false
+      Visual Enabled: true
+    - Class: rviz_default_plugins/TF
+      Enabled: false
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+      Marker Scale: 0.10000000149011612
+      Name: TF
+      Show Arrows: false
+      Show Axes: false
+      Show Names: false
+      Tree:
+        {}
+      Update Interval: 0
+      Value: false
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
@@ -175,7 +211,19 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        left-back-foot-tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
+        left-back-foot_pitch:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        left-back-foot_roll:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         left-back-hip-span1:
           Alpha: 1
           Show Axes: false
@@ -205,7 +253,19 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        left-front-foot-tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
+        left-front-foot_pitch:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        left-front-foot_roll:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         left-front-hip-span1:
           Alpha: 1
           Show Axes: false
@@ -235,7 +295,19 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        left-middle-foot-tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
+        left-middle-foot_pitch:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        left-middle-foot_roll:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         left-middle-hip-span1:
           Alpha: 1
           Show Axes: false
@@ -269,7 +341,19 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        right-back-foot-tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
+        right-back-foot_pitch:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        right-back-foot_roll:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         right-back-hip-span1:
           Alpha: 1
           Show Axes: false
@@ -299,7 +383,19 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        right-front-foot-tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
+        right-front-foot_pitch:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        right-front-foot_roll:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         right-front-hip-span1:
           Alpha: 1
           Show Axes: false
@@ -329,7 +425,19 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
+        right-middle-foot-tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
+        right-middle-foot_pitch:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        right-middle-foot_roll:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         right-middle-hip-span1:
           Alpha: 1
           Show Axes: false
@@ -364,249 +472,68 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-      Name: RobotModel
-      TF Prefix: ""
+      Name: Robot Target State
+      TF Prefix: target
       Update Interval: 0
       Value: true
       Visual Enabled: true
-    - Class: rviz_default_plugins/TF
-      Enabled: true
-      Frame Timeout: 15
-      Frames:
-        All Enabled: false
-        J11-ST1:
-          Value: true
-        J12-ST1:
-          Value: true
-        J13-ST1:
-          Value: true
-        J21-ST1:
-          Value: true
-        J22-ST1:
-          Value: true
-        J23-ST1:
-          Value: true
-        J31-ST1:
-          Value: true
-        J32-ST1:
-          Value: true
-        J33-ST1:
-          Value: true
-        J41-ST1:
-          Value: true
-        J42-ST1:
-          Value: true
-        J43-ST1:
-          Value: true
-        J51-ST1:
-          Value: true
-        J52-ST1:
-          Value: true
-        J53-ST1:
-          Value: true
-        J61-ST1:
-          Value: true
-        J62-ST1:
-          Value: true
-        J63-ST1:
-          Value: true
-        base_link:
-          Value: true
-        bottom_plate:
-          Value: true
-        imu_link:
-          Value: true
-        left-back-foot:
-          Value: true
-        left-back-hip-span1:
-          Value: true
-        left-back-hip-span2:
-          Value: true
-        left-back-lower-leg-span1:
-          Value: true
-        left-back-upper-leg-span1:
-          Value: true
-        left-back-upper-leg-span2:
-          Value: true
-        left-front-foot:
-          Value: true
-        left-front-hip-span1:
-          Value: true
-        left-front-hip-span2:
-          Value: true
-        left-front-lower-leg-span1:
-          Value: true
-        left-front-upper-leg-span1:
-          Value: true
-        left-front-upper-leg-span2:
-          Value: true
-        left-middle-foot:
-          Value: true
-        left-middle-hip-span1:
-          Value: true
-        left-middle-hip-span2:
-          Value: true
-        left-middle-lower-leg-span1:
-          Value: true
-        left-middle-upper-leg-span1:
-          Value: true
-        left-middle-upper-leg-span2:
-          Value: true
-        odom:
-          Value: true
-        right-back-foot:
-          Value: true
-        right-back-hip-span1:
-          Value: true
-        right-back-hip-span2:
-          Value: true
-        right-back-lower-leg-span1:
-          Value: true
-        right-back-upper-leg-span1:
-          Value: true
-        right-back-upper-leg-span2:
-          Value: true
-        right-front-foot:
-          Value: true
-        right-front-hip-span1:
-          Value: true
-        right-front-hip-span2:
-          Value: true
-        right-front-lower-leg-span1:
-          Value: true
-        right-front-upper-leg-span1:
-          Value: true
-        right-front-upper-leg-span2:
-          Value: true
-        right-middle-foot:
-          Value: true
-        right-middle-hip-span1:
-          Value: true
-        right-middle-hip-span2:
-          Value: true
-        right-middle-lower-leg-span1:
-          Value: true
-        right-middle-upper-leg-span1:
-          Value: true
-        right-middle-upper-leg-span2:
-          Value: true
-        top_plate:
-          Value: true
-        world:
-          Value: true
-      Marker Scale: 0.10000000149011612
-      Name: TF
-      Show Arrows: false
-      Show Axes: false
-      Show Names: false
-      Tree:
-        world:
-          odom:
-            base_link:
-              J11-ST1:
-                right-back-hip-span1:
-                  right-back-hip-span2:
-                    J12-ST1:
-                      right-back-upper-leg-span1:
-                        right-back-upper-leg-span2:
-                          J13-ST1:
-                            right-back-lower-leg-span1:
-                              right-back-foot:
-                                {}
-              J21-ST1:
-                right-middle-hip-span1:
-                  right-middle-hip-span2:
-                    J22-ST1:
-                      right-middle-upper-leg-span1:
-                        right-middle-upper-leg-span2:
-                          J23-ST1:
-                            right-middle-lower-leg-span1:
-                              right-middle-foot:
-                                {}
-              J31-ST1:
-                right-front-hip-span1:
-                  right-front-hip-span2:
-                    J32-ST1:
-                      right-front-upper-leg-span1:
-                        right-front-upper-leg-span2:
-                          J33-ST1:
-                            right-front-lower-leg-span1:
-                              right-front-foot:
-                                {}
-              J41-ST1:
-                left-back-hip-span1:
-                  left-back-hip-span2:
-                    J42-ST1:
-                      left-back-upper-leg-span1:
-                        left-back-upper-leg-span2:
-                          J43-ST1:
-                            left-back-lower-leg-span1:
-                              left-back-foot:
-                                {}
-              J51-ST1:
-                left-middle-hip-span1:
-                  left-middle-hip-span2:
-                    J52-ST1:
-                      left-middle-upper-leg-span1:
-                        left-middle-upper-leg-span2:
-                          J53-ST1:
-                            left-middle-lower-leg-span1:
-                              left-middle-foot:
-                                {}
-              J61-ST1:
-                left-front-hip-span1:
-                  left-front-hip-span2:
-                    J62-ST1:
-                      left-front-upper-leg-span1:
-                        left-front-upper-leg-span2:
-                          J63-ST1:
-                            left-front-lower-leg-span1:
-                              left-front-foot:
-                                {}
-              bottom_plate:
-                {}
-              imu_link:
-                {}
-              top_plate:
-                {}
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_description
+      Enabled: false
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+      Name: Trajectory Preview
+      TF Prefix: preview
       Update Interval: 0
-      Value: true
+      Value: false
+      Visual Enabled: true
     - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
+      Enabled: false
       Name: Robot Dynamics
       Namespaces:
-        current_pose: true
-        target_pose: true
-        trajectory: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /robot_dynamics/visuals
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/InteractiveMarkers
       Enable Transparency: true
-      Enabled: true
+      Enabled: false
       Interactive Markers Namespace: /robot_dynamics/interactive
       Name: Robot Control
       Show Axes: false
       Show Descriptions: false
       Show Visual Aids: false
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/InteractiveMarkers
       Enable Transparency: false
-      Enabled: true
+      Enabled: false
       Interactive Markers Namespace: /robot_dynamics/interaction
       Name: Robot Interaction
       Show Axes: false
       Show Descriptions: false
       Show Visual Aids: false
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 14; 55; 137
-    Fixed Frame: world
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -618,6 +545,9 @@ Visualization Manager:
     - Class: rviz_default_plugins/Measure
       Line color: 128; 128; 0
     - Class: rviz_default_plugins/SetInitialPose
+      Covariance x: 0.25
+      Covariance y: 0.25
+      Covariance yaw: 0.06853891909122467
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -646,25 +576,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 1.007153868675232
+      Distance: 0.8339959979057312
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.0355067178606987
-        Y: -0.07341983914375305
-        Z: -0.10295143723487854
+        X: -0.03660864755511284
+        Y: 0.003879391588270664
+        Z: -0.01275600679218769
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.6747963428497314
+      Pitch: 0.7247959971427917
       Target Frame: odom
       Value: Orbit (rviz_default_plugins)
-      Yaw: 0.5745529532432556
+      Yaw: 3.592768907546997
     Saved: ~
 Window Geometry:
   Displays:
@@ -672,7 +602,7 @@ Window Geometry:
   Height: 1343
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000282000004d7fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006e00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000047000004d7000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f00000521fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d00000521000000c200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004420000003efc0100000002fb0000000800540069006d00650100000000000004420000000000000000fb0000000800540069006d0065010000000000000450000000000000000000000718000004d700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000039e000004d7fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006e00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c0061007900730100000047000004d7000000f100fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f00000521fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003d00000521000000c200fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004420000003efc0100000002fb0000000800540069006d00650100000000000004420000000000000000fb0000000800540069006d00650100000000000004500000000000000000000005fc000004d700000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Tool Properties:
@@ -680,5 +610,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 2465
-  X: 1375
-  Y: 35
+  X: 1312
+  Y: 642
