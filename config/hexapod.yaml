@@ -70,6 +70,17 @@ robot_dynamics:
     odometry: /odom_raw
     joint_controller: position_trajectory_controller
     effort_controller: /effort_controller/commands
+
+robot_control:
+  ros__parameters:
+    frequency: 40.0
+    publish_state_frequency: 20.0
+    preview_frequency: 15.0
+    progress_frequency: 10.0
+    self_manage: true
+    joint_controller: position_trajectory_controller
+    chain0: "[leg] base_link => r_sole"
+    chain1: "[leg] base_link => l_sole"
     joint_names:
       - J11
       - J12
@@ -89,11 +100,5 @@ robot_dynamics:
       - J61
       - J62
       - J63
-    chain0: "[leg] base_link => r_sole"
-    chain1: "[leg] base_link => l_sole"
 
-robot_control:
-  ros__parameters:
-    frequency: 20.0
-    self_manage: true
 
