@@ -198,7 +198,7 @@ class Hexapod(Node):
         # subscribe to model control state
         self.control_state_sub = self.create_subscription(
             ControlState,
-            '/robot_dynamics/control_state',
+            '/robot_control/control_state',
             self.control_state_callback,
             reliable_profile)
 
@@ -211,13 +211,13 @@ class Hexapod(Node):
         # create publisher for segment trajectories
         self.trajectory_pub = self.create_publisher(
             MultiSegmentTrajectory,
-            "/robot_dynamics/trajectory",
+            "/robot_control/trajectory",
             reliable_profile)
 
         self.trajectory_client = ActionClient(
             self,
             EffectorTrajectory,
-            '/robot_dynamics/trajectory')
+            '/robot_control/trajectory')
 
         self.move_timer_ = self.create_timer(
             0.1, self.move_robot)
