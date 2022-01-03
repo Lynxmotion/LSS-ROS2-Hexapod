@@ -96,6 +96,7 @@ class Hexapod(Node):
 
     base_standing_z = 0.06
     base_sitting_z = 0.042
+    walking_gait_velocity = 1.2
 
     heading = 0
     target_heading = math.inf
@@ -554,7 +555,7 @@ class Hexapod(Node):
         traj = default_segment_trajectory_msg(
             leg.foot_link,
             id='move-leg',
-            velocity=2.0,
+            velocity=self.walking_gait_velocity,
             reference_frame=reference_frame,
             points=[to_vector3(point)],
             rotations=[to_quaternion(rot)])
@@ -583,7 +584,7 @@ class Hexapod(Node):
         support_mode = default_segment_trajectory_msg(
             leg.foot_link,
             id='support-leg',
-            velocity=2.0,
+            velocity=self.walking_gait_velocity,
             reference_frame=self.odom_link,
             points=[to_vector3(point.p)],
             rotations=[to_quaternion(point.M)])
@@ -593,7 +594,7 @@ class Hexapod(Node):
         if isinstance(leg, str):
             leg = self.legs[leg]
 
-        traj = leg.lift(to, self.base_pose, base_velocity=0.0)
+        traj = leg.lift(to, velocity=self.walking_gait_velocity)
 
         #def progress(p: TrajectoryProgress):
         #    #print(f'   leg lift progress: {p.segment}  {p.progress*100:3.1f}% of {p.duration:3.2f}s')
@@ -633,10 +634,11 @@ class Hexapod(Node):
                 on_complete(r)
 
         leg.state = Leg.ADVANCING
+        print(f'stance leg {leg.name} from {leg.polar} => {to}')
         support_mode = default_segment_trajectory_msg(
             leg.foot_link,
             id='stance-leg',
-            velocity=0.5,
+            velocity=self.walking_gait_velocity,
             reference_frame=self.base_link,
             points=[P(target_pos[0], target_pos[1], leg.origin.p[2] - self.base_standing_z)],
             rotations=[to_quaternion(leg.rect.M)])
@@ -914,7 +916,7 @@ class Hexapod(Node):
         def local_movement():
             leg = self.legs[name]
             base_tf = self.state.get_frame_rel(self.base_link, self.odom_link)
-            traj = leg.lift(to, base_tf)
+            traj = leg.lift(to, velocity=self.walking_gait_velocity)
             self.transmit_trajectory([traj])
         return local_movement
 
