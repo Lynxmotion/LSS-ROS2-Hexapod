@@ -548,9 +548,9 @@ class Hexapod(Node):
             on_complete = complete
 
         if reference_frame == self.base_link:
-            rot = self.base_pose.M
-        elif reference_frame == self.odom_link:
             rot = kdl.Rotation()
+        elif reference_frame == self.odom_link:
+            rot = self.base_pose.M
 
         traj = default_segment_trajectory_msg(
             leg.foot_link,
