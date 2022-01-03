@@ -445,6 +445,9 @@ class Hexapod(Node):
     def control_state_callback(self, msg: ControlState):
         if not self.legs:
             return
+        expected_prefix = 'preview' if self.previewMode else ''
+        if msg.header.frame_id != expected_prefix:
+            return
 
         # update base pose
         #self.odom = self.state.get_frame(self.odom_link)
@@ -462,17 +465,14 @@ class Hexapod(Node):
             leg_name = msg_leg.name.replace('-foot', '')
             leg = self.legs[leg_name]
             leg.rect = to_kdl_frame(msg_leg.effector.pose)
-            polar = leg.to_polar(leg.rect)
-            rect = leg.to_rect(polar)
-
-            polar2 = leg.to_polar(leg.rect, False)
-            rect2 = leg.to_rect(polar2, False)
-            if leg_name == 'left-front':
-                print(f'  P{polar}   R{rect}    O{leg.rect.p}')
-
+            #polar = leg.to_polar(leg.rect)
+            #rect = leg.to_rect(polar)
+            #polar2 = leg.to_polar(leg.rect, False)
+            #rect2 = leg.to_rect(polar2, False)
+            #if leg_name == 'left-front':
+            #    print(f'  P{polar}   R{rect}    O{leg.rect.p}')
 
     def enable_motors(self):
-        return False
         print("enable motors")
         # turn the motors on or off by sending efforts directly to ros2 control
         msg = Float64MultiArray()
