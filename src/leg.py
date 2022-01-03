@@ -153,7 +153,6 @@ class Leg:
 
         return default_segment_trajectory_msg(
             self.foot_link,
-            id='lift-leg',
             velocity=velocity,
             reference_frame='base_link',
             points=[get_point(d/10) for d in range(1, 11)],
