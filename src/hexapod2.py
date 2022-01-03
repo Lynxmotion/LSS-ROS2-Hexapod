@@ -175,19 +175,6 @@ class Hexapod(Node):
             self.urdf_callback,
             transient_local_reliable_profile)
 
-        # pull TF so we can figure out where our segments are,
-        # and their relative positions
-        #self.tf_state_sub = self.create_subscription(
-        #    TFMessage,
-        #    '/tf',
-        #    self.tf_callback,
-        #    reliable_profile)
-        #self.tf_static_state_sub = self.create_subscription(
-        #    TFMessage,
-        #    '/tf_static',
-        #    self.tf_callback,
-        #    reliable_profile)
-
         # subscribe to model state
         self.model_state_sub = self.create_subscription(
             ModelState,
@@ -261,114 +248,6 @@ class Hexapod(Node):
             print(f'  limb: {leg} => {hip_tf.p}  yaw: {hip_yaw * 180 / math.pi}')
 
         print('created legs from URDF')
-
-    def tf_callback(self, msg):
-        # we should no longer need to subscribe to this
-        if self.legs:
-            return
-
-        for tf in msg.transforms:
-            preview = False
-            orig_child_frame = tf.child_frame_id
-            if self.previewMode:
-                if tf.child_frame_id.startswith('preview/'):
-                    preview = True
-                    tf.child_frame_id = tf.child_frame_id[8:]
-                if tf.header.frame_id.startswith('preview/'):
-                    tf.header.frame_id = tf.header.frame_id[8:]
-
-            if tf.child_frame_id in self.state.frame_map:
-                # existing object
-                frame = self.state.frame_map[tf.child_frame_id]
-                if not self.previewMode or preview:
-                    frame.parent = tf.header.frame_id
-                    frame.preview = preview
-                    frame.transform = to_kdl_frame(tf.transform)
-                    #if tf.child_frame_id == self.base_link:
-                    #    print(f'BASE {orig_child_frame}  {frame.transform.p[0]:6.4f} {frame.transform.p[1]:6.4f}')
-            else:
-                # new frame
-                self.state.frame_map[tf.child_frame_id] = DynamicObject(
-                    parent=tf.header.frame_id,
-                    preview=preview,
-                    transform=to_kdl_frame(tf.transform)
-                )
-
-        if not self.legs:
-            # try gathering the data we need for each leg
-            # we need to receive the origin of each hip and the location of each leg effector
-            legs = dict()
-            # for each leg - left-middle-hip-span1
-            for leg_prefix in each_leg():
-                leg_hip = leg_prefix+'-hip-span1'
-                leg_effector = leg_prefix+'-foot'
-                base_odom = self.state.get_frame_rel(self.base_link, self.odom_link)
-                hip_base = self.state.get_frame_rel(leg_hip)
-                bottom_plate = self.state.get_frame_rel("bottom_plate")
-                effector_base = self.state.get_frame_rel(leg_effector)
-                if hip_base and effector_base:
-                    rot = kdl.Rotation()
-                    #hip_yaw = hip_base.M.GetRPY()
-                    #hip_yaw = hip_yaw[2]
-                    hip_odom = base_odom * hip_base
-                    #hip_base.p[2] = hip_odom.p[2]     # move Z origin of leg to Z origin of odom frame
-                    hip_base.p[2] = bottom_plate.p[2]     # move Z origin of leg to Z origin of base_link
-                    hip_yaw = math.atan2(hip_base.p[1], hip_base.p[0])
-                    rot = rot.RPY(0.0, 0.0, hip_yaw)
-                    print(f'  yaw: {leg_prefix} => {hip_yaw*180/math.pi}')
-                    leg = legs[leg_prefix] = Leg(
-                        name=leg_prefix,
-                        origin=kdl.Frame(
-                            rot,
-                            hip_base.p
-                        )
-                    )
-                    leg.origin_angle = hip_yaw
-                    if 'front' in leg.name:
-                        leg.neutral_angle = self.neutral_offset
-                    elif 'back' in leg.name:
-                        leg.neutral_angle = -self.neutral_offset
-
-                    print(f'  hip {leg.name}: Y{hip_yaw}  A{leg.origin_angle*180/math.pi:4.2f} {hip_base.p}')
-
-            # only accept the data if we found all 6 leg transforms
-            if len(legs) == 6:
-                # we have the hip data, now try determining the current leg state
-                for l_name in each_leg('right'):
-                    legs[l_name].reverse = True
-                    print(f'reversing {l_name}')
-                self.legs = legs
-
-                # no need to subscribe to TF anymore
-                self.tf_state_sub = None
-                self.tf_static_state_sub = None
-
-        if self.legs:
-            # update base pose
-            self.odom = self.state.get_frame(self.odom_link)
-            self.base_pose = self.state.get_frame(self.base_link)
-
-            # get the robot heading
-            rz, ry, rx = self.base_pose.M.GetEulerZYX()
-            self.heading = rz
-            #if math.isinf(self.target_heading):
-            #    self.target_heading = self.heading
-
-            # update the Leg positions
-            for leg in self.legs.values():
-                leg.rect = self.state.get_frame_rel(leg.foot_link)
-                polar = leg.to_polar(leg.rect)
-                rect = leg.to_rect(polar)
-                #if leg.rect != rect:
-                #    print('not equal')
-                #foot_hip = self.state.get_frame_rel(leg.foot_link, leg.hip_link)
-                #if foot_hip:
-                #    #leg.rect = foot_hip
-                #    polar = PolarCoord.from_rect(foot_hip.p[0], foot_hip.p[1], foot_hip.p[2])
-                #    polar.angle += math.pi
-                #    if not leg.polar == polar:
-                #        print(f"   {leg.name} => {polar}")
-                #    leg.polar = polar
 
     def model_state_callback(self, msg: ModelState):
         if not self.legs:
@@ -693,7 +572,6 @@ class Hexapod(Node):
                     self.gait_state = Hexapod.WALKING
 
             elif self.gait_state == Hexapod.WALKING:
-                print("begin walking")
                 # if non-supporting set is now supportive, then
                 # lift change the supporting set to lift
                 non_supportive_is_supporting = reduce(
