@@ -150,11 +150,11 @@ class Hexapod(Node):
         ]
         self.tripod_set_supporting = 0
 
-        best_effort_profile = QoSProfile(
-            depth=10,
-            history=HistoryPolicy.KEEP_LAST,
-            reliability=ReliabilityPolicy.RELIABLE,
-            durability=DurabilityPolicy.VOLATILE)
+        #best_effort_profile = QoSProfile(
+        #    depth=10,
+        #    history=HistoryPolicy.KEEP_LAST,
+        #    reliability=ReliabilityPolicy.RELIABLE,
+        #    durability=DurabilityPolicy.VOLATILE)
 
         reliable_profile = QoSProfile(
             depth=10,
@@ -188,12 +188,6 @@ class Hexapod(Node):
             '/robot_control/control_state',
             self.control_state_callback,
             reliable_profile)
-
-        # create publisher for enabling/disabling joints
-        self.effort_pub = self.create_publisher(
-            Float64MultiArray,
-            "/effort_controller/commands",
-            best_effort_profile)
 
         # create publisher for segment trajectories
         self.trajectory_pub = self.create_publisher(
@@ -350,20 +344,6 @@ class Hexapod(Node):
             #rect2 = leg.to_rect(polar2, False)
             #if leg_name == 'left-front':
             #    print(f'  P{polar}   R{rect}    O{leg.rect.p}')
-
-    def enable_motors(self):
-        print("enable motors")
-        # turn the motors on or off by sending efforts directly to ros2 control
-        msg = Float64MultiArray()
-        msg.data = [1.0] * 18
-        self.effort_pub.publish(msg)
-
-    def disable_motors(self):
-        print("disable motors")
-        # turn the motors on or off by sending efforts directly to ros2 control
-        msg = Float64MultiArray()
-        msg.data = [0.0] * 18
-        self.effort_pub.publish(msg)
 
     def clear_trajectory(self):
         msj = MultiSegmentTrajectory()
@@ -751,21 +731,17 @@ class Hexapod(Node):
 
     def stand_and_sit(self):
         self.tasks = [
-            #WaitTask(0.5, init=self.enable_motors),
             WaitTask(2.0, init=self.stand),
             WaitTask(2.0),
             WaitTask(2.0, init=self.sit),
-            #WaitTask(2.5, init=self.disable_motors),
         ]
 
     def stand_up(self):
         self.tasks.extend([
-            #WaitTask(0.5, init=self.enable_motors),
             WaitTask(1.7, init=self.move_legs_local(PolarCoord(0.0, 0.15, 0.02))),
-            WaitTask(2.4, init=self.move_legs_local(PolarCoord(0.0, 0.13, -self.base_standing_z)))
+            WaitTask(2.4, init=self.move_legs_local(PolarCoord(0.0, self.neutral_radius, -self.base_standing_z)))
             #WaitTask(1.0, init=self.stand),
             #WaitTask(2.0, init=self.move_legs_local(PolarCoord(0.0, 0.15, -self.base_standing_z))),
-            #WaitTask(2.5, init=self.disable_motors)
         ])
 
     def sit_down(self):
@@ -810,6 +786,7 @@ class Hexapod(Node):
 
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
+        #self.disable_motors()
         self.shutdown = True
 
     def run(self):
