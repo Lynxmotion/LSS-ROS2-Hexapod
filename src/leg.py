@@ -85,71 +85,47 @@ class Leg:
         # compute the origin angle of the leg (it's neutral heading)
         self.origin_angle = math.atan2(origin.p[1], origin.p[0])
 
-
     def tick(self, state: dict):
         pass
 
-    def to_polar(self, rect: kdl.Frame, base_pose: kdl.Frame = None) -> PolarCoord:
-        if not base_pose:
-            base_pose = kdl.Frame()
+    def to_polar(self, rect: kdl.Vector, use_neutral: bool = True) -> PolarCoord:
         if not rect:
-            rect = self.rect
-        if isinstance(rect, kdl.Vector):
-            rect = kdl.Frame(rect)
-        # get hip location in odom space
-        hip_odom = base_pose * self.origin
-        #hip_odom.p[2] = 0
-        # get foot location in odom space
-        foot_odom = base_pose * rect
-        # now get the final
-        xx = foot_odom * hip_odom
-        xx = hip_odom.Inverse() * foot_odom
-        #xx = kdl.Frame(rect).Inverse() * base_pose * self.origin
-        coord = PolarCoord.from_rect(xx.p[0], xx.p[1], xx.p[2])
+            rect = self.rect.p
+        elif isinstance(rect, kdl.Frame):
+            rect = rect.p
+        # get foot location relative to limb origin
+        hip_foot = self.origin.Inverse() * rect
+        coord = PolarCoord.from_rect(hip_foot[0], hip_foot[1], hip_foot[2])
+        #coord.angle -= self.origin_angle
         if self.reverse:
             coord.angle *= -1
-        #coord.angle -= self.origin_angle
+        if use_neutral:
+            coord.angle -= self.neutral_angle
         return coord
 
     # return the rectangular coordinates from the polar coordinates relative to the base_link
-    def to_rect(self, coord: PolarCoord, base_pose: kdl.Frame = None, use_neutral: bool = True) -> kdl.Vector:
-        if not base_pose:
-            base_pose = kdl.Frame()
+    def to_rect(self, coord: PolarCoord, use_neutral: bool = True) -> kdl.Vector:
+        coord = PolarCoord(
+            angle=coord.angle,
+            distance=coord.distance,
+            z=coord.z
+        )
         if use_neutral:
-            coord = PolarCoord(
-                    angle=coord.angle + self.neutral_angle,
-                    distance=coord.distance,
-                    z=coord.z
-                )
+            coord.angle += self.neutral_angle
         if self.reverse:
-            coord = PolarCoord(angle=-coord.angle, distance=coord.distance, z=coord.z)
-        #coord2 = PolarCoord(angle=coord.angle + self.origin_angle, distance=coord.distance, z=coord.z)
-        rect = coord.to_kdl_vector()
-        # reverse coordinate system
-        #rect.p[0] = -rect.p[0]
-        #rect.p[1] = -rect.p[1]
+            coord.angle = -coord.angle
+        #coord.angle -= self.origin_angle
+        return self.origin * coord.to_kdl_vector()
 
-        hip_odom = base_pose * self.origin
-        #hip_odom.p[2] = 0
-        xx = hip_odom * rect
+    @property
+    def polar(self) -> PolarCoord:
+        return self.to_polar(self.rect.p)
 
-        # todo: calculate opposite direction then inverse
-        #xx = rect.Inverse() * self.origin.Inverse() * base_pose.Inverse()
-
-        # transform to be relative to base_link
-        xx_base = base_pose.Inverse() * xx
-        #coord_check = self.to_polar(xx_base, base_pose)
-
-        return xx_base
-
-    def polar(self, base_pose: kdl.Frame = None) -> PolarCoord:
-        return self.to_polar(self.rect, base_pose)
-
-    def lift(self, polar: PolarCoord, base_pose: kdl.Frame, base_velocity: kdl.Vector):
+    def lift(self, polar: PolarCoord, velocity: float):
         # how long will it take our leg to complete the trajectory?
         duration = 2.0
 
-        fr = self.polar()
+        fr = self.polar
 
         print(f'lift leg {self.name} from {fr} => {polar}')
         if math.isnan(polar.zlocal):
