@@ -10,7 +10,7 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from tf2_msgs.msg import TFMessage
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, String
 from geometry_msgs.msg import Vector3
 from robot_model_msgs.msg import MultiSegmentTrajectory, ModelState, ControlState, Limb, \
     MultiTrajectoryProgress, TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
@@ -21,6 +21,7 @@ from scipy.spatial import ConvexHull
 from robot import RobotState
 from ros_trajectory_builder import default_segment_trajectory_msg
 import PyKDL as kdl
+from urdf_parser_py.urdf import URDF
 from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P, R
 
 from polar import PolarCoord
@@ -99,6 +100,9 @@ class Hexapod(Node):
     heading = 0
     target_heading = math.inf
 
+    urdf = None
+    robot = None
+
     # odom => base transform
     odom: kdl.Frame
 
@@ -163,18 +167,25 @@ class Hexapod(Node):
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
+        # pull URDF so we can determine tf linkages
+        self.urdf_sub = self.create_subscription(
+            String,
+            '/robot_description',
+            self.urdf_callback,
+            transient_local_reliable_profile)
+
         # pull TF so we can figure out where our segments are,
         # and their relative positions
-        self.tf_state_sub = self.create_subscription(
-            TFMessage,
-            '/tf',
-            self.tf_callback,
-            reliable_profile)
-        self.tf_static_state_sub = self.create_subscription(
-            TFMessage,
-            '/tf_static',
-            self.tf_callback,
-            reliable_profile)
+        #self.tf_state_sub = self.create_subscription(
+        #    TFMessage,
+        #    '/tf',
+        #    self.tf_callback,
+        #    reliable_profile)
+        #self.tf_static_state_sub = self.create_subscription(
+        #    TFMessage,
+        #    '/tf_static',
+        #    self.tf_callback,
+        #    reliable_profile)
 
         # subscribe to model state
         self.model_state_sub = self.create_subscription(
@@ -213,6 +224,42 @@ class Hexapod(Node):
     def resolve_legs(self, legs: typing.Iterable):
         # resolve an array of leg names to an array leg objects
         return [self.legs[leg] for leg in legs if leg in self.legs]
+
+    def urdf_callback(self, msg):
+        self.urdf = msg.data
+        self.robot = URDF.from_xml_string(self.urdf)
+        # todo: TrajectoryBuilder has an example of kdl_tree_from_urdf_model
+        self.legs = dict()
+        for leg_prefix in each_leg():
+            chain = self.robot.get_chain(self.base_link, leg_prefix + '-hip-span1', links=False)
+            hip_tf = kdl.Frame()
+            for l in chain:
+                joint = self.robot.joint_map[l]
+                origin = joint.origin
+                joint_tf = kdl.Frame(
+                    kdl.Rotation.RPY(roll=origin.rpy[0], pitch=origin.rpy[1], yaw=origin.rpy[2]),
+                    kdl.Vector(x=origin.xyz[0], y=origin.xyz[1], z=origin.xyz[2]))
+                hip_tf = hip_tf * joint_tf
+            hip_yaw = math.atan2(hip_tf.p[1], hip_tf.p[0])
+            rot = kdl.Rotation.RPY(0.0, 0.0, hip_yaw)
+            leg = self.legs[leg_prefix] = Leg(
+                name=leg_prefix,
+                origin=kdl.Frame(
+                    rot,
+                    hip_tf.p
+                )
+            )
+            leg.origin_angle = hip_yaw
+            if 'front' in leg.name:
+                leg.neutral_angle = self.neutral_offset
+            elif 'back' in leg.name:
+                leg.neutral_angle = -self.neutral_offset
+            if 'right' in leg.name:
+                leg.reverse = True
+
+            print(f'  limb: {leg} => {hip_tf.p}  yaw: {hip_yaw * 180 / math.pi}')
+
+        print('created legs from URDF')
 
     def tf_callback(self, msg):
         # we should no longer need to subscribe to this
@@ -330,12 +377,19 @@ class Hexapod(Node):
         expected_frame_id = 'preview/'+self.odom_link if self.previewMode else self.odom_link
         if msg.header.frame_id == expected_frame_id:
             self.model_state = msg
+
+            # self.world = to_kdl_frame(msg.world)
+            self.odom = to_kdl_frame(msg.odom)
+            self.base_pose = to_kdl_frame(msg.base_pose)
+
             self.CoP = to_kdl_vector(self.model_state.support.center_of_pressure)
 
             # get position of support legs relative to odom frame
             #support_legs = [self.base_pose * l.rect for l_name, l in self.legs.items() if l.state == Leg.SUPPORTING]
             support_legs = [self.base_pose * l.rect for l in self.legs.values() if
-                              l.name in self.tripod_set[self.tripod_set_supporting]]
+                              l.rect is not None and l.name in self.tripod_set[self.tripod_set_supporting]]
+            if len(support_legs) < 3:
+                return
 
             # now make triangles between each pair of support legs and the CoP,
             # figure out what the min(hyp) is of the triangles.
