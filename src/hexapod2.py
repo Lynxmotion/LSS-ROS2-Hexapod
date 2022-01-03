@@ -131,7 +131,7 @@ class Hexapod(Node):
 
         self.state = RobotState()
         self.tasks = []
-        self.support_margin = 0.
+        self.support_margin = math.nan
 
         self.leg_neighbors = {
             'left-front': ['left-middle', 'right-front'],
@@ -652,13 +652,13 @@ class Hexapod(Node):
                 t.points = [transform * p for p in t.points]
         msj = MultiSegmentTrajectory()
         msj.header.stamp = self.get_clock().now().to_msg()
-        msj.header.frame_id = 'odom'
+        msj.header.frame_id = self.base_link
         msj.mode = mode
         msj.segments = tsegs
         self.trajectory_pub.publish(msj)
 
     def tripod_gait(self):
-        if self.base_pose and self.support_margin:
+        if self.base_pose and not math.isnan(self.support_margin):
             # get leg sets
             non_supporting = [l for l in self.legs.values() if
                               l.name not in self.tripod_set[self.tripod_set_supporting]]
