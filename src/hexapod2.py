@@ -9,9 +9,7 @@ from functools import reduce
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from tf2_msgs.msg import TFMessage
 from std_msgs.msg import Float64MultiArray, String
-from geometry_msgs.msg import Vector3
 from robot_model_msgs.msg import MultiSegmentTrajectory, ModelState, ControlState, Limb, \
     TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
 from robot_model_msgs.action import EffectorTrajectory, CoordinatedEffectorTrajectory
@@ -30,51 +28,6 @@ from leg import Leg, each_leg, tripod_set
 
 
 DynamicObject = lambda **kwargs: type("Object", (), kwargs)
-
-
-class Task:
-    on_init = None
-    on_tick = None
-    on_finish = None
-
-    PENDING = 0
-    RUNNING = 1
-    DONE = 10
-
-    state = 0
-
-    def __init__(self, **kwargs):
-        if 'init' in kwargs:
-            self.on_init = kwargs['init']
-        if 'tick' in kwargs:
-            self.on_tick = kwargs['tick']
-        if 'finish' in kwargs:
-            self.on_finish = kwargs['finish']
-
-
-class WaitTask(Task):
-    delay = 0
-    expires = None
-
-    def __init__(self, seconds: float, **kwargs):
-        self.delay = seconds
-        self.expires = 0
-        self.user_init = kwargs['init'] if 'init' in kwargs else None
-        self.user_tick = kwargs['tick'] if 'tick' in kwargs else None
-        kwargs['tick'] = self.tick
-        kwargs['init'] = self.init
-        super().__init__(**kwargs)
-
-    def init(self):
-        self.expires = time.time() + self.delay
-        if self.user_init:
-            self.user_init()
-
-    def tick(self):
-        if time.time() > self.expires:
-            self.state = Task.DONE
-        elif self.user_tick:
-            self.user_tick()
 
 
 class Hexapod(Node):
@@ -131,7 +84,6 @@ class Hexapod(Node):
         self.shutdown = False
 
         self.state = RobotState()
-        self.tasks = []
         self.support_margin = math.nan
 
         self.leg_neighbors = {
@@ -654,52 +606,11 @@ class Hexapod(Node):
         if self.gait:
             self.gait()
 
-        self.timestep += 0.1
-        if self.tasks and len(self.tasks):
-            task = self.tasks[0]
-            if task.state == Task.PENDING:
-                task.state = Task.RUNNING
-                if task.on_init:
-                    task.on_init()
-            elif task.state == Task.RUNNING:
-                if task.on_tick:
-                    task.on_tick()
-
-            # check if task is done
-            if task.state == Task.DONE or (task.expires and 0 < task.expires < time.time()):
-                # done, remove the task
-                self.tasks = self.tasks[1:]
-                if task.on_finish:
-                    task.on_finish()
-                #if len(self.tasks) == 0:
-                #    print("done")
-                #    #self.executor.shutdown(timeout_sec=0)
-                #    #self.destroy_node()
-                #    rclpy.shutdown(context=self.context)
-                #    exit(0)
-
-    def enable_gait(self, gait: typing.Callable):
-        def start_gait():
-            self.gait = gait
-        return WaitTask(2.0, init=start_gait)
-
     def walk(self, heading: float, distance: float):
-        self.tasks.extend([
-            #WaitTask(2.0, init=self.move_base(heading=heading, distance=distance)),
-            self.enable_gait(gait=self.coordinated_tripod_gait)
-        ])
-
-    def step(self, name: str, to: PolarCoord):
-        def local_movement():
-            leg = self.legs[name]
-            base_tf = self.state.get_frame_rel(self.base_link, self.odom_link)
-            traj = leg.lift(to, velocity=self.walking_gait_velocity)
-            self.transmit_trajectory([traj])
-        return local_movement
+        self.gait = self.coordinated_tripod_gait
 
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
-        #self.disable_motors()
         self.shutdown = True
 
     def run(self):
