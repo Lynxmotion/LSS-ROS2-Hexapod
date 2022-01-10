@@ -79,6 +79,7 @@ class Hexapod(Node):
     neutral_radius = 0.12
 
     timestep = 0
+    active_trajectories = 0
 
     def __init__(self, args):
         super().__init__('hexapod')
@@ -365,6 +366,7 @@ class Hexapod(Node):
         request.goal.segment = goal
 
         def handle_result(future):
+            self.active_trajectories -= 1
             result = future.result()
             if complete:
                 complete(result.result.result)
@@ -384,6 +386,7 @@ class Hexapod(Node):
                 progress(feedback_msg.feedback.progress)
 
         self.trajectory_client.wait_for_server()
+        self.active_trajectories += 1
         goal_handle = self.trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
 
@@ -403,6 +406,7 @@ class Hexapod(Node):
         request.goal.segments = goals
 
         def handle_result(future):
+            self.active_trajectories -= 1
             result = future.result()
             if complete:
                 complete(result.result.result)
@@ -422,6 +426,7 @@ class Hexapod(Node):
                 progress(feedback_msg.feedback.progress)
 
         self.coordinated_trajectory_client.wait_for_server()
+        self.active_trajectories += 1
         goal_handle = self.coordinated_trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
 
