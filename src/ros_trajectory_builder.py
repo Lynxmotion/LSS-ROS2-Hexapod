@@ -167,9 +167,9 @@ def default_segment_trajectory_msg(
     # if rotations:
     #    t.rotations = [to_quaternion(r) for r in rotations]
     if points:
-        t.points = points
+        t.points = [to_vector3(p) if isinstance(p, kdl.Vector) else p for p in points]
     if rotations:
-        t.rotations = rotations
+        t.rotations = [to_quaternion(r) if isinstance(r, kdl.Rotation) else r for r in rotations]
     return t
 
 
