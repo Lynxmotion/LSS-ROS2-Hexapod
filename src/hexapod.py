@@ -5,6 +5,7 @@ import time
 import math
 import typing
 from functools import reduce
+from operator import attrgetter
 
 from rclpy.node import Node
 from rclpy.action import ActionClient, ActionServer, GoalResponse, CancelResponse
@@ -37,6 +38,7 @@ class Hexapod(Node):
     STANDING = 1
     WALKING = 2
     TURNING = 3
+    SHIFT_LEG = 4
 
     tasks = None
 
@@ -51,7 +53,9 @@ class Hexapod(Node):
 
     base_standing_z = 0.06
     base_sitting_z = 0.042
+
     walking_gait_velocity = 1.2
+    stand_velocity = 0.4
 
     heading = 0
     target_heading = math.inf
@@ -63,7 +67,7 @@ class Hexapod(Node):
     odom: kdl.Frame
 
     # the current pose of the base
-    base_pose: kdl.Frame
+    base_pose: kdl.Frame = kdl.Frame()
     CoP: kdl.Vector
     support_margin: float
 
@@ -220,7 +224,7 @@ class Hexapod(Node):
             if 'right' in leg.name:
                 leg.reverse = True
 
-            print(f'  limb: {leg} => {hip_tf.p}  yaw: {hip_yaw * 180 / math.pi}')
+            print(f'  limb: {leg.name} => {hip_tf.p}  yaw: {hip_yaw * 180 / math.pi}')
 
         print('created legs from URDF')
 
@@ -329,11 +333,14 @@ class Hexapod(Node):
 
     def motion_callback(self, msg: Motion):
         if msg.walking_speed > 0.0:
-            self.gait = self.coordinated_tripod_gait
             self.walking_gait_velocity = msg.walking_speed
             self.target_heading = msg.target_heading
+            if self.gait != self.coordinated_tripod_gait:
+                print(f'gait => walk   (speed={msg.walking_speed}')
+                self.set_gait(self.coordinated_tripod_gait)
         else:
-            self.gait = None
+            if self.gait != self.standing_gait:
+                self.set_gait(self.standing_gait)
 
     def clear(self, target_state: bool = False, trajectories: bool = False, limp: bool = False):
         self.reset_client.wait_for_service()
@@ -518,6 +525,7 @@ class Hexapod(Node):
             leg.foot_link,
             id='stance-leg',
             velocity=self.walking_gait_velocity,
+            supporting=True,
             reference_frame=self.base_link,
             points=[P(target_pos[0], target_pos[1], leg.origin.p[2] - self.base_standing_z)],
             rotations=[to_quaternion(leg.rect.M)])
@@ -563,7 +571,7 @@ class Hexapod(Node):
         targets = []
         for leg in non_supporting:
             foot = leg.rect
-            dest = leg.to_rect(PolarCoord(angle=0.4, distance=0.12))
+            dest = leg.to_rect(PolarCoord(angle=0.3, distance=0.10))
             delta = dest - foot.p
             distance = math.sqrt(delta[0] * delta[0] + delta[1] * delta[1])
             targets.append(distance)
@@ -585,20 +593,19 @@ class Hexapod(Node):
             support_move = default_segment_trajectory_msg(
                 leg.foot_link,
                 velocity=self.walking_gait_velocity,
+                supporting=True,
                 reference_frame=self.base_link,
                 points=[P(target_pos[0], target_pos[1], leg.origin.p[2] - self.base_standing_z)],
                 rotations=[to_quaternion(leg.rect.M)])
             movements.append(support_move)
 
         def take_another_step(result: TrajectoryComplete):
-            if self.gait:
+            # resume walking only if we are still in our tripod gait
+            if self.gait and self.gait == self.coordinated_tripod_gait:
                 if result.code == TrajectoryComplete.SUCCESS:
                     self.take_coordinated_step()
                 else:
                     print(f'walking code {result.code}   duration:{result.duration}')
-            else:
-                print('back to standing')
-                self.gait_state = Hexapod.STANDING
 
         if len(movements):
             self.coordinated_trajectory(movements, id='walk', complete=take_another_step)
@@ -629,8 +636,155 @@ class Hexapod(Node):
                 self.gait_state = Hexapod.WALKING
                 self.take_coordinated_step()
         if self.gait_state == Hexapod.STANDING and self.walking_gait_velocity > 0.0:
+            self.gait_state = Hexapod.WALKING
             self.take_coordinated_step()
         #elif self.gait_state == Hexapod.WALKING:
+
+    def goto_state(self, state: int, legs: str or Leg or typing.List[Leg] = None):
+        if legs is None:
+            legs = self.legs
+        elif isinstance(legs, str):
+            legs = [self.legs[legs]]
+        elif isinstance(legs, Leg):
+            legs [legs]
+        for l in legs:
+            if isinstance(l, str):
+                l = self.legs[l]
+            l.state = state
+
+    def standing_gait(self):
+        if self.gait_state == Hexapod.IDLE:
+            print('standing up')
+            # stand the robot up
+            to_the_heavens = []
+            to_standing_pose = []
+            for l_name in each_leg():
+                leg = self.legs[l_name]
+                to_the_heavens.append(
+                    default_segment_trajectory_msg(
+                        leg.foot_link,
+                        velocity=self.stand_velocity,
+                        acceleration=0.1,
+                        points=[leg.to_rect(PolarCoord(
+                            angle=0.0,  # was 0.4
+                            distance=self.neutral_radius*1.1,
+                            z=0.02))]
+                    ))
+
+                to_standing_pose.append(
+                    default_segment_trajectory_msg(
+                        leg.foot_link,
+                        velocity=self.stand_velocity,
+                        acceleration=0.8,
+                        supporting=True,
+                        points=[leg.to_rect(PolarCoord(
+                            angle=0.0,  # was 0.4
+                            distance=self.neutral_radius,
+                            z=-self.base_standing_z))]
+                    ))
+
+            self.gait_state = Hexapod.STANDING
+            self.coordinated_trajectory(
+                to_the_heavens,
+                id='stand-lift',
+                complete=lambda res:
+                    self.coordinated_trajectory(
+                        to_standing_pose,
+                        id='stand-down',
+                        complete=lambda res: self.goto_state(Leg.SUPPORTING))
+            )
+
+        elif self.gait_state == Hexapod.STANDING:
+            if self.active_trajectories == 0:
+                # see if we need to do a tripod leg move
+                # (in reaction to turning for example)
+                # start by seeing what legsis more stretched out
+                max_leg: Leg = None
+                max_angle = 0.0
+                for leg in self.legs.values():
+                    polar = leg.polar
+                    if not max_leg or abs(polar.angle) > max_angle:
+                        max_leg = leg
+                        max_angle = abs(polar.angle)
+
+                if max_angle > 0.35:    # 20 degrees
+                    # move the set of legs that includes this leg
+                    for s in self.tripod_set:
+                        if max_leg.name in s:
+                            # move this set
+                            movements = []
+                            for sl_name in s:
+                                leg = self.legs[sl_name]
+                                to = PolarCoord(
+                                    angle=0.0,  # was 0.4
+                                    distance=self.neutral_radius,
+                                    z=-self.base_standing_z)
+                                # leg.state = Leg.LIFTING
+                                # if leg.name == 'left-front':
+                                leg.state = Leg.LIFTING
+                                traj = leg.lift(to, velocity=self.walking_gait_velocity)
+                                movements.append(traj)
+                            self.coordinated_trajectory(movements, id='turn-step')
+                            return
+
+                # see if there is a leg needing adjustment due to large position error
+                leg = max(self.legs.values(), key=attrgetter('error'))
+                if leg.error > 0.02:
+                    print(f'adjusting {leg.name}   e: {leg.error}')
+                    up = default_segment_trajectory_msg(
+                        leg.foot_link,
+                        velocity=self.stand_velocity,
+                        supporting=True,
+                        points=[leg.to_rect(PolarCoord(
+                            angle=0.0,  # was 0.4
+                            distance=self.neutral_radius,
+                            z=-self.base_standing_z + 0.02))])
+                    down = default_segment_trajectory_msg(
+                        leg.foot_link,
+                        velocity=self.stand_velocity,
+                        supporting=True,
+                        points=[leg.to_rect(PolarCoord(
+                            angle=0.0,  # was 0.4
+                            distance=self.neutral_radius,
+                            z=-self.base_standing_z))])
+                    self.coordinated_trajectory(
+                        [up],
+                        id='shift-up',
+                        complete=lambda res:
+                            self.coordinated_trajectory(
+                                [down],
+                                id='shift-down')
+                    )
+                    return
+
+
+        elif self.gait_state == Hexapod.WALKING:
+            print('walk => standing')
+            # stand the robot up
+            to_standing_pose = []
+            for l_name in each_leg():
+                leg = self.legs[l_name]
+                to_standing_pose.append(
+                    default_segment_trajectory_msg(
+                        leg.foot_link,
+                        velocity=self.stand_velocity,
+                        supporting=True,
+                        points=[leg.to_rect(PolarCoord(
+                            angle=0.0,  # was 0.4
+                            distance=self.neutral_radius,
+                            z=-self.base_standing_z))]
+                    ))
+
+            self.gait_state = Hexapod.STANDING
+            self.coordinated_trajectory(
+                to_standing_pose,
+                id='stand-up',
+                complete=lambda res: self.goto_state(Leg.SUPPORTING))
+
+        else:
+            print('entering standing state')
+            # todo: analyze leg positions currently, and decide how to stand
+            self.goto_state(Hexapod.IDLE)
 
     def move_robot(self):
         if not self.legs or not self.base_pose or math.isnan(self.support_margin):
@@ -664,14 +818,14 @@ class Hexapod(Node):
             # cancel the existing goal
             self.walk_goal.canceled()
             self.walk_goal = None
-        return GoalResponse.ACCEPT if goal.speed > 0 else GoalResponse.REJECT
+        return GoalResponse.ACCEPT if goal.walking_speed > 0 else GoalResponse.REJECT
 
     def walk_action_callback(self, goal_handle):
         print('walk_callback')
         #self.gait = self.coordinated_tripod_gait
         self.walk(
             math.pi / 2 + goal_handle.request.heading,
-            goal_handle.request.speed)
+            goal_handle.request.walking_speed)
 
     def walk_action_cancel_callback(self, goal_handle):
         print("cancel walking")
@@ -679,9 +833,13 @@ class Hexapod(Node):
         self.gait = None
 
 
+    def set_gait(self, gait: typing.Callable):
+        self.gait = gait
+
     def walk(self, heading: float, speed: float, distance: float = None):
         self.walking_gait_velocity = speed
-        self.gait = self.coordinated_tripod_gait
+        self.set_gait(self.coordinated_tripod_gait)
+
 
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
@@ -704,6 +862,7 @@ def main(args=sys.argv):
     #node.stand_and_sit()
     #node.stand_up()
     #node.walk(math.pi/2, 0.5)
+    node.set_gait(node.standing_gait)
     node.run()
 
 
