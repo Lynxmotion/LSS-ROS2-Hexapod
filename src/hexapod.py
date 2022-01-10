@@ -60,6 +60,7 @@ class Hexapod(Node):
 
     heading = 0
     target_heading = math.inf
+    turn_rate = 0.0
 
     urdf = None
     robot = None
@@ -84,7 +85,10 @@ class Hexapod(Node):
     neutral_radius = 0.12
 
     timestep = 0
+
     active_trajectories = 0
+    leg_goal: ClientGoalHandle = None
+    turn_goal_handle: ClientGoalHandle = None
 
     def __init__(self, args):
         super().__init__('hexapod')
@@ -340,7 +344,19 @@ class Hexapod(Node):
     def motion_callback(self, msg: Motion):
         if msg.walking_speed > 0.0:
             self.walking_gait_velocity = msg.walking_speed
-            self.target_heading = msg.target_heading
+
+            # update turn rate
+            #self.target_heading = msg.target_heading
+            if msg.target_heading > 4.0:
+                msg.target_heading = 4.0
+            if abs(msg.target_heading) < 0.2:
+                if self.turn_goal_handle:
+                    self.turn(0.0)
+            elif abs(msg.target_heading - self.turn_rate) > 2.0:
+                # update turn speed
+                self.turn_rate = msg.target_heading
+                self.turn(self.turn_rate)
+
             if self.gait != self.coordinated_tripod_gait:
                 print(f'gait => walk   (speed={msg.walking_speed}')
                 self.set_gait(self.coordinated_tripod_gait)
@@ -503,6 +519,42 @@ class Hexapod(Node):
         goal_handle = self.linear_trajectory_client.send_goal_async(goal, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
         return goal_handle
+
+    @staticmethod
+    def is_goal_active(goal_handle: ClientGoalHandle):
+        # check if goal_handle ref is valid, and that we have a cancel_goal_async method,
+        # if no method then the goal must have completed
+        # todo: is there a better way to check if a goal_handle is complete?
+        return goal_handle and hasattr(goal_handle, 'cancel_goal_async')
+
+    def are_legs_active(self):
+        return Hexapod.is_goal_active(self.leg_goal)
+
+    def cancel_turning(self):
+        if self.turn_goal_handle:
+            if hasattr(self.turn_goal_handle, 'cancel_goal_async'):
+                self.turn_goal_handle.cancel_goal_async()
+            self.turn_goal_handle = None
+            print("stopped")
+
+    def turn(self, speed: float = 0.0):
+        """" speed is in degrees/sec """
+        if abs(speed) < 0.01:
+            self.cancel_turning()
+        else:
+            print(f'speed => {speed} deg/sec')
+            speed *= math.pi / 180.0  # convert into radians/sec
+
+            def done():
+                self.turn_goal_handle = None
+                print('turn stopped')
+
+            self.turn_goal_handle = self.linear_trajectory(
+                effectors=self.base_link,
+                twists=kdl.Twist(kdl.Vector(), kdl.Vector(x=0.0, y=0.0, z=speed)),
+                angular_acceleration=0.1,
+                complete=done
+            )
 
     def move_leg_to(
             self,
@@ -674,7 +726,7 @@ class Hexapod(Node):
                     print(f'walking code {result.code}   duration:{result.duration}')
 
         if len(movements):
-            self.coordinated_trajectory(movements, id='walk', complete=take_another_step)
+            self.leg_goal = self.coordinated_trajectory(movements, id='walk', complete=take_another_step)
 
 
     def coordinated_tripod_gait(self):
@@ -750,7 +802,7 @@ class Hexapod(Node):
                     ))
 
             self.gait_state = Hexapod.STANDING
-            self.coordinated_trajectory(
+            self.leg_goal = self.coordinated_trajectory(
                 to_the_heavens,
                 id='stand-lift',
                 complete=lambda res:
@@ -761,7 +813,7 @@ class Hexapod(Node):
             )
 
         elif self.gait_state == Hexapod.STANDING:
-            if self.active_trajectories == 0:
+            if not self.are_legs_active():
                 # see if we need to do a tripod leg move
                 # (in reaction to turning for example)
                 # start by seeing what legsis more stretched out
@@ -790,7 +842,7 @@ class Hexapod(Node):
                                 leg.state = Leg.LIFTING
                                 traj = leg.lift(to, velocity=self.walking_gait_velocity)
                                 movements.append(traj)
-                            self.coordinated_trajectory(movements, id='turn-step')
+                            self.leg_goal = self.coordinated_trajectory(movements, id='turn-step')
                             return
 
                 # see if there is a leg needing adjustment due to large position error
@@ -813,7 +865,7 @@ class Hexapod(Node):
                             angle=0.0,  # was 0.4
                             distance=self.neutral_radius,
                             z=-self.base_standing_z))])
-                    self.coordinated_trajectory(
+                    self.leg_goal = self.coordinated_trajectory(
                         [up],
                         id='shift-up',
                         complete=lambda res:
@@ -842,7 +894,7 @@ class Hexapod(Node):
                     ))
 
             self.gait_state = Hexapod.STANDING
-            self.coordinated_trajectory(
+            self.leg_goal = self.coordinated_trajectory(
                 to_standing_pose,
                 id='stand-up',
                 complete=lambda res: self.goto_state(Leg.SUPPORTING))
@@ -909,6 +961,7 @@ class Hexapod(Node):
 
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
+        self.cancel_turning()
         self.shutdown = True
 
     def run(self):
