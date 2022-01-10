@@ -1,5 +1,5 @@
 import PyKDL
-from geometry_msgs.msg import Vector3, Transform, TransformStamped, Quaternion
+from geometry_msgs.msg import Vector3, Transform, TransformStamped, Quaternion, Pose
 
 def to_kdl_rotation(quaternion):
     return PyKDL.Rotation.Quaternion(x=quaternion.x, y=quaternion.y, z=quaternion.z, w=quaternion.w)
@@ -10,9 +10,14 @@ def to_kdl_vector(vector3):
 
 
 def to_kdl_frame(transform):
-    return PyKDL.Frame(
-        to_kdl_rotation(transform.rotation),
-        to_kdl_vector(transform.translation))
+    if isinstance(transform, Pose):
+        return PyKDL.Frame(
+            to_kdl_rotation(transform.orientation),
+            to_kdl_vector(transform.position))
+    else:
+        return PyKDL.Frame(
+            to_kdl_rotation(transform.rotation),
+            to_kdl_vector(transform.translation))
 
 
 def to_vector3(vector: PyKDL.Vector):
