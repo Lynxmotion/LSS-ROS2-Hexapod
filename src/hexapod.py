@@ -318,6 +318,7 @@ class Hexapod(Node):
             leg_name = msg_leg.name.replace('-foot', '')
             leg = self.legs[leg_name]
             leg.rect = to_kdl_frame(msg_leg.effector.pose)
+            leg.error = msg_leg.effector.error
             #polar = leg.to_polar(leg.rect)
             #rect = leg.to_rect(polar)
             #polar2 = leg.to_polar(leg.rect, False)

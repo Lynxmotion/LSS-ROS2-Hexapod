@@ -76,6 +76,9 @@ class Leg:
     # relative to base_link
     rect: kdl.Frame = None
 
+    # the amount of error between current position and target
+    error: float
+
     def __init__(self, name: str, origin: kdl.Frame):
         self.name = name
         self.foot_link = name + '-foot'
