@@ -1,5 +1,5 @@
 import PyKDL
-from geometry_msgs.msg import Vector3, Transform, TransformStamped, Quaternion, Pose
+from geometry_msgs.msg import Vector3, Transform, TransformStamped, Quaternion, Pose, Twist
 
 def to_kdl_rotation(quaternion):
     return PyKDL.Rotation.Quaternion(x=quaternion.x, y=quaternion.y, z=quaternion.z, w=quaternion.w)
@@ -33,6 +33,13 @@ def to_transform(f: PyKDL.Frame):
     return Transform(
         translation=to_vector3(f.p),
         rotation=to_quaternion(f.M)
+    )
+
+
+def to_geo_twist(t: PyKDL.Twist):
+    return Twist(
+        linear=to_vector3(t.vel),
+        angular=to_vector3(t.rot)
     )
 
 
