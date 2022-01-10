@@ -63,7 +63,9 @@ class HexapodRadioControl(Node):
             motion.walking_speed = constrain(0.0, (msg.data[2] - 1000) * 8.0 / 1000.0, 8.0)
             if motion.walking_speed < 0.5:
                 motion.walking_speed = 0.0
-            motion.target_heading = 0.0
+            motion.target_heading = constrain(-15.0, (msg.data[3] - 1500) * 15.0 / 500.0, 15.0)
+            if abs(motion.target_heading) < 1.0:
+                motion.target_heading = 0.0
             if self.walking_speed is None or abs(self.walking_speed - motion.walking_speed) > 0.1:
                 self.walking_speed = motion.walking_speed
                 print(f'speed: {motion.walking_speed}')
