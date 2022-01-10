@@ -390,13 +390,14 @@ class Hexapod(Node):
         goal_handle = self.trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
 
-    def coordinated_trajectory(self,
-                   goals: typing.List[SegmentTrajectory],
-                   id: str = None,
-                   sync_duration: bool = True,
-                   complete=typing.Callable,
-                   progress: typing.Callable = None,
-                   rejected: typing.Callable = None):
+    def coordinated_trajectory(
+               self,
+               goals: typing.List[SegmentTrajectory],
+               id: str = None,
+               sync_duration: bool = True,
+               complete: typing.Callable = None,
+               progress: typing.Callable = None,
+               rejected: typing.Callable = None):
         request = CoordinatedEffectorTrajectory.Goal()
         request.goal.header.stamp = self.get_clock().now().to_msg()
         #request.goal.header.frame_id = self.base_link
