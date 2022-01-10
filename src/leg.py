@@ -47,6 +47,7 @@ class Leg:
     MOVING = 1
     LIFTING = 2
     SUPPORTING = 3
+    ADVANCING = 4
 
     name: str = None
     foot_link: str = None
@@ -124,10 +125,7 @@ class Leg:
     def polar(self) -> PolarCoord:
         return self.to_polar(self.rect.p)
 
-    def lift(self, polar: PolarCoord, velocity: float):
-        # how long will it take our leg to complete the trajectory?
-        duration = 2.0
-
+    def lift(self, polar: PolarCoord, velocity: float, lift: float = 0.02):
         fr = self.polar
 
         print(f'lift leg {self.name} from {fr} => {polar}')
@@ -140,18 +138,12 @@ class Leg:
             # lift leg in a semicircle as we proceed to target
             v: PolarCoord = tw_dist.get(p)
 
-            # where will base be when our leg lands?
-            #base_future = kdl.Frame(base_pose)
-            #point_vel = base_velocity * (duration * p)
-            #base_future.p += point_vel
-
             # transform from polar to rectangular in odom frame
             r = self.to_rect(v)
 
             # add in Z lift as an arc
-            r[2] += self.lift_max * math.sin(p * math.pi)
+            r[2] += lift * math.sin(p * math.pi)
             #print(f'   {p:2.1f} => {v} => {r[0]} {r[1]} {r[2]}')
-            #fo = base_future * r
             return to_vector3(r)
 
         return default_segment_trajectory_msg(
@@ -159,4 +151,5 @@ class Leg:
             velocity=velocity,
             reference_frame='base_link',
             points=[get_point(d/10) for d in range(1, 11)],
+            #rotations=[])
             rotations=[to_quaternion(self.rect.M)])
