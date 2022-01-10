@@ -9,11 +9,12 @@ from operator import attrgetter
 
 from rclpy.node import Node
 from rclpy.action import ActionClient, ActionServer, GoalResponse, CancelResponse
+from rclpy.action.client import ClientGoalHandle
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float64MultiArray, String
 from robot_model_msgs.msg import ModelState, ControlState, Limb, \
     TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
-from robot_model_msgs.action import EffectorTrajectory, CoordinatedEffectorTrajectory
+from robot_model_msgs.action import EffectorTrajectory, CoordinatedEffectorTrajectory, LinearEffectorTrajectory
 from robot_model_msgs.srv import Reset, ConfigureLimb
 from lss_hexapod.msg import Motion
 from lss_hexapod.action import Walk, Rotate
@@ -23,7 +24,7 @@ from robot import RobotState
 from ros_trajectory_builder import default_segment_trajectory_msg
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
-from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P, R
+from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, to_geo_twist, P, R
 
 from polar import PolarCoord
 from leg import Leg, each_leg, tripod_set
@@ -165,6 +166,11 @@ class Hexapod(Node):
             self,
             CoordinatedEffectorTrajectory,
             '/robot_control/coordinated_trajectory')
+
+        self.linear_trajectory_client = ActionClient(
+            self,
+            LinearEffectorTrajectory,
+            '/robot_control/linear_trajectory')
 
         #
         # Hexapod Actions for external clients
@@ -396,6 +402,7 @@ class Hexapod(Node):
         self.active_trajectories += 1
         goal_handle = self.trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
+        return goal_handle
 
     def coordinated_trajectory(
                self,
@@ -437,6 +444,65 @@ class Hexapod(Node):
         self.active_trajectories += 1
         goal_handle = self.coordinated_trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
+        return goal_handle
+
+    def linear_trajectory(
+            self,
+            effectors: str or typing.List[str],
+            twists: kdl.Twist or typing.List[kdl.Twist],
+            linear_acceleration: float = 0.0,
+            angular_acceleration: float = 0.0,
+            supporting: bool = False,
+            sync_duration: bool = True,
+            id: str = None,
+            complete: typing.Callable = None,
+            progress: typing.Callable = None,
+            rejected: typing.Callable = None):
+        if not isinstance(effectors, list):
+            effectors = [effectors]
+        if not isinstance(twists, list):
+            twists = [twists]
+        # convert twists into geo msgs
+        twists = [to_geo_twist(t) for t in twists]
+        if linear_acceleration == 0.0 and angular_acceleration == 0.0:
+            raise ValueError('requires either linear or angular acceleration')
+
+        goal = LinearEffectorTrajectory.Goal()
+        goal.header.stamp = self.get_clock().now().to_msg()
+        if id:
+            goal.id = id
+        #goal.sync_duration = sync_duration
+        goal.supporting = supporting
+        goal.linear_acceleration = linear_acceleration
+        goal.angular_acceleration = angular_acceleration
+        goal.effectors = effectors
+        goal.velocity = twists
+
+        def handle_result(future):
+            self.active_trajectories -= 1
+            result = future.result()
+            if complete:
+                complete(result.result.result)
+
+        def handle_response(future):
+            goal_h = future.result()
+            if goal_h.accepted:
+                result_future = goal_h.get_result_async()
+                result_future.add_done_callback(handle_result)
+            else:
+                print(f'linear trajectory request for {id} rejected')
+                if rejected:
+                    rejected()
+
+        def feedback_callback(feedback_msg):
+            if progress:
+                progress(feedback_msg.feedback.progress)
+
+        self.linear_trajectory_client.wait_for_server()
+        self.active_trajectories += 1
+        goal_handle = self.linear_trajectory_client.send_goal_async(goal, feedback_callback=feedback_callback)
+        goal_handle.add_done_callback(handle_response)
+        return goal_handle
 
     def move_leg_to(
             self,
