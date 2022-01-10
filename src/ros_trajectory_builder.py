@@ -11,10 +11,10 @@ from sensor_msgs.msg import Imu
 from tf2_msgs.msg import TFMessage
 from std_msgs.msg import String, Float64MultiArray
 from geometry_msgs.msg import Vector3, Transform, TransformStamped, Quaternion
-from humanoid_model_msgs.msg import MultiSegmentTrajectory, SegmentTrajectory
+from robot_model_msgs.msg import SegmentTrajectory
 from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
-from humanoid_model_msgs.msg import ModelState
+from robot_model_msgs.msg import ModelState
 
 from joint import Joint, JointGroup
 from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P
@@ -144,18 +144,21 @@ def kdl_tree_from_urdf_model(urdf):
 
 
 def default_segment_trajectory_msg(
-        segment: str, start: float = 0.0, id: str = None,
-        velocity: float = 1.0, reference_frame: str = 'base_link', points: [] = None,
+        segment: str, start: float = 0.0,
+        velocity: float = 1.0,
+        acceleration: float = 1.2,
+        supporting: bool = False,
+        reference_frame: str = 'base_link',
+        points: [] = None,
         rotations: [] = None):
     t = SegmentTrajectory()
     t.start.sec = int(start)
     t.start.nanosec = int((start - t.start.sec) * 1000000000)
-    if id:
-        t.id = id
     t.segment = segment
     t.profile = 'velocity/trap'
     t.velocity = velocity
-    t.acceleration = 0.1
+    t.acceleration = acceleration
+    t.supporting = supporting
     t.path = 'rounded'
     t.reference_frame = reference_frame
     t.coordinate_mode = 0
