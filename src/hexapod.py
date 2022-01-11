@@ -382,11 +382,13 @@ class Hexapod(Node):
     def limp(self):
         return self.clear(trajectories=True, limp=True)
 
-    def trajectory(self, goal: SegmentTrajectory,
-                   id: str = None,
-                   complete=typing.Callable,
-                   progress: typing.Callable = None,
-                   rejected: typing.Callable = None):
+    def single_trajectory(
+            self,
+            goal: SegmentTrajectory,
+            id: str = None,
+            complete: typing.Callable = None,
+            progress: typing.Callable = None,
+            rejected: typing.Callable = None) -> rclpy.task.Future:
         request = EffectorTrajectory.Goal()
         request.goal.header.stamp = self.get_clock().now().to_msg()
         #request.goal.header.frame_id = goal.reference_frame
@@ -427,7 +429,7 @@ class Hexapod(Node):
                sync_duration: bool = True,
                complete: typing.Callable = None,
                progress: typing.Callable = None,
-               rejected: typing.Callable = None):
+               rejected: typing.Callable = None) -> rclpy.task.Future:
         request = CoordinatedEffectorTrajectory.Goal()
         request.goal.header.stamp = self.get_clock().now().to_msg()
         #request.goal.header.frame_id = self.base_link
@@ -473,7 +475,7 @@ class Hexapod(Node):
             id: str = None,
             complete: typing.Callable = None,
             progress: typing.Callable = None,
-            rejected: typing.Callable = None):
+            rejected: typing.Callable = None) -> rclpy.task.Future:
         if not isinstance(effectors, list):
             effectors = [effectors]
         if not isinstance(twists, list):
