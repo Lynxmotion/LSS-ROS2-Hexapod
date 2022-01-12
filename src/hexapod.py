@@ -9,7 +9,7 @@ from operator import attrgetter
 
 from rclpy.node import Node
 from rclpy.action import ActionClient, ActionServer, GoalResponse, CancelResponse
-from rclpy.action.client import ClientGoalHandle
+from rclpy.action.client import ClientGoalHandle, GoalStatus
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float64MultiArray, String
 from robot_model_msgs.msg import ModelState, ControlState, Limb, \
@@ -28,7 +28,7 @@ from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to
 
 from polar import PolarCoord
 from leg import Leg, each_leg, tripod_set
-
+from trajectory import PathTrajectory, LinearTrajectory
 
 DynamicObject = lambda **kwargs: type("Object", (), kwargs)
 
@@ -86,9 +86,8 @@ class Hexapod(Node):
 
     timestep = 0
 
-    active_trajectories = 0
-    leg_goal: ClientGoalHandle = None
-    turn_goal_handle: ClientGoalHandle = None
+    leg_goal: rclpy.task.Future = None
+    turn_goal_handle: rclpy.task.Future = None
 
     def __init__(self, args):
         super().__init__('hexapod')
@@ -397,7 +396,6 @@ class Hexapod(Node):
         request.goal.segment = goal
 
         def handle_result(future):
-            self.active_trajectories -= 1
             result = future.result()
             if complete:
                 complete(result.result.result)
@@ -417,7 +415,6 @@ class Hexapod(Node):
                 progress(feedback_msg.feedback.progress)
 
         self.trajectory_client.wait_for_server()
-        self.active_trajectories += 1
         goal_handle = self.trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
         return goal_handle
@@ -439,7 +436,6 @@ class Hexapod(Node):
         request.goal.segments = goals
 
         def handle_result(future):
-            self.active_trajectories -= 1
             result = future.result()
             if complete:
                 complete(result.result.result)
@@ -459,10 +455,9 @@ class Hexapod(Node):
                 progress(feedback_msg.feedback.progress)
 
         self.coordinated_trajectory_client.wait_for_server()
-        self.active_trajectories += 1
-        goal_handle = self.coordinated_trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
-        goal_handle.add_done_callback(handle_response)
-        return goal_handle
+        goal_future = self.coordinated_trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
+        goal_future.add_done_callback(handle_response)
+        return goal_future
 
     def linear_trajectory(
             self,
@@ -497,7 +492,6 @@ class Hexapod(Node):
         goal.velocity = twists
 
         def handle_result(future):
-            self.active_trajectories -= 1
             result = future.result()
             if complete:
                 complete(result.result.result)
@@ -517,16 +511,85 @@ class Hexapod(Node):
                 progress(feedback_msg.feedback.progress)
 
         self.linear_trajectory_client.wait_for_server()
-        self.active_trajectories += 1
         goal_handle = self.linear_trajectory_client.send_goal_async(goal, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
         return goal_handle
+
+    def trajectory(
+            self,
+            units: typing.List[PathTrajectory or LinearTrajectory],
+            complete: typing.Callable = None):
+        # create a future to return to our caller
+        future = rclpy.task.Future()
+
+        def execute_unit(unit: PathTrajectory or LinearTrajectory) -> rclpy.task.Future:
+            if isinstance(unit, PathTrajectory):
+                print(f'executing coordinated trajectory {unit.id}')
+                return self.coordinated_trajectory(
+                    goals=unit.goal,
+                    id=unit.id,
+                    sync_duration=unit.synchronize,
+                    complete=complete_unit,
+                    progress=unit.progress,
+                    rejected=rejected_unit)
+            elif isinstance(unit, LinearTrajectory):
+                print(f'executing linear trajectory {unit.id}')
+                return self.linear_trajectory(
+                    effectors=unit.effectors,
+                    twists=unit.twists,
+                    linear_acceleration=unit.linear_acceleration,
+                    angular_acceleration=unit.angular_acceleration,
+                    id=unit.id,
+                    sync_duration=unit.synchronize,
+                    supporting=unit.supporting,
+                    complete=complete_unit,
+                    progress=unit.progress,
+                    rejected=rejected_unit)
+            else:
+                print(f'{unit.id} like not like a segment')
+
+        def rejected_unit(result):
+            nonlocal units
+            if len(units) and callable(units[0].rejected):
+                units[0].rejected(result)
+            next_unit()
+
+        def complete_unit(result):
+            nonlocal units
+            if len(units) and callable(units[0].complete):
+                units[0].complete(result)
+            next_unit()
+
+        def next_unit():
+            nonlocal units
+            if len(units) == 0:
+                print('end of units')
+                future.set_result(True)
+            else:
+                print('next unit')
+                next_task = execute_unit(units[0])
+                if next_task.done():
+                    print('   unit is already done')
+                units = units[1:]
+                #next_task.add_done_callback(next_unit)
+
+        if complete:
+            future.add_done_callback(complete)
+
+        # queue up the first trajectory
+        next_unit()
+        return future
+
 
     @staticmethod
     def is_goal_active(goal_handle: ClientGoalHandle):
         # check if goal_handle ref is valid, and that we have a cancel_goal_async method,
         # if no method then the goal must have completed
         # todo: is there a better way to check if a goal_handle is complete?
+        return goal_handle and not goal_handle.done()
+
+    @staticmethod
+    def is_cancellable(self, goal_handle):
         return goal_handle and hasattr(goal_handle, 'cancel_goal_async')
 
     def are_legs_active(self):
@@ -535,7 +598,11 @@ class Hexapod(Node):
     def cancel_turning(self):
         if self.turn_goal_handle:
             if hasattr(self.turn_goal_handle, 'cancel_goal_async'):
+                print('cancelling turning (client goal)')
                 self.turn_goal_handle.cancel_goal_async()
+            elif hasattr(self.turn_goal_handle, 'cancel'):
+                print('cancelling turning (future)')
+                self.turn_goal_handle.cancel()
             self.turn_goal_handle = None
             print("stopped")
 
@@ -594,7 +661,7 @@ class Hexapod(Node):
 
         leg.state = Leg.LIFTING
         print(f'leg lift: {traj.segment}')
-        self.trajectory(traj, id='move-leg', complete=on_complete, **kwargs)
+        self.single_trajectory(traj, id='move-leg', complete=on_complete, **kwargs)
 
     def lift_leg(self, leg: Leg or str, to: PolarCoord, on_complete: typing.Callable = None):
         if isinstance(leg, str):
@@ -618,7 +685,7 @@ class Hexapod(Node):
                 on_complete(r)
 
         leg.state = Leg.LIFTING
-        self.trajectory(traj, complete=complete)
+        self.single_trajectory(traj, complete=complete)
 
     def stance_leg(self, leg: Leg or str, to: kdl.Vector, on_complete: typing.Callable = None):
         if isinstance(leg, str):
@@ -649,8 +716,7 @@ class Hexapod(Node):
             reference_frame=self.base_link,
             points=[P(target_pos[0], target_pos[1], leg.origin.p[2] - self.base_standing_z)],
             rotations=[to_quaternion(leg.rect.M)])
-        self.trajectory(support_mode, complete=complete)
-
+        self.single_trajectory(support_mode, complete=complete)
 
     def take_coordinated_step(self):
         movements = []
@@ -774,45 +840,15 @@ class Hexapod(Node):
 
     def standing_gait(self):
         if self.gait_state == Hexapod.IDLE:
-            print('standing up')
-            # stand the robot up
-            to_the_heavens = []
-            to_standing_pose = []
-            for l_name in each_leg():
-                leg = self.legs[l_name]
-                to_the_heavens.append(
-                    default_segment_trajectory_msg(
-                        leg.foot_link,
-                        velocity=self.stand_velocity,
-                        acceleration=0.1,
-                        points=[leg.to_rect(PolarCoord(
-                            angle=0.0,  # was 0.4
-                            distance=self.neutral_radius*1.1,
-                            z=0.02))]
-                    ))
+            if not self.are_legs_active():
+                print('standing up')
+                units = self.stand_up()
 
-                to_standing_pose.append(
-                    default_segment_trajectory_msg(
-                        leg.foot_link,
-                        velocity=self.stand_velocity,
-                        acceleration=0.8,
-                        supporting=True,
-                        points=[leg.to_rect(PolarCoord(
-                            angle=0.0,  # was 0.4
-                            distance=self.neutral_radius,
-                            z=-self.base_standing_z))]
-                    ))
+                def done(r):
+                    print('stood up')
+                    self.gait_state = Hexapod.STANDING
 
-            self.gait_state = Hexapod.STANDING
-            self.leg_goal = self.coordinated_trajectory(
-                to_the_heavens,
-                id='stand-lift',
-                complete=lambda res:
-                    self.coordinated_trajectory(
-                        to_standing_pose,
-                        id='stand-down',
-                        complete=lambda res: self.goto_state(Leg.SUPPORTING))
-            )
+                self.leg_goal = self.trajectory(units, complete=done)
 
         elif self.gait_state == Hexapod.STANDING:
             if not self.are_legs_active():
@@ -851,30 +887,7 @@ class Hexapod(Node):
                 leg = max(self.legs.values(), key=attrgetter('error'))
                 if leg.error > 0.02:
                     print(f'adjusting {leg.name}   e: {leg.error}')
-                    up = default_segment_trajectory_msg(
-                        leg.foot_link,
-                        velocity=self.stand_velocity,
-                        supporting=True,
-                        points=[leg.to_rect(PolarCoord(
-                            angle=0.0,  # was 0.4
-                            distance=self.neutral_radius,
-                            z=-self.base_standing_z + 0.02))])
-                    down = default_segment_trajectory_msg(
-                        leg.foot_link,
-                        velocity=self.stand_velocity,
-                        supporting=True,
-                        points=[leg.to_rect(PolarCoord(
-                            angle=0.0,  # was 0.4
-                            distance=self.neutral_radius,
-                            z=-self.base_standing_z))])
-                    self.leg_goal = self.coordinated_trajectory(
-                        [up],
-                        id='shift-up',
-                        complete=lambda res:
-                            self.coordinated_trajectory(
-                                [down],
-                                id='shift-down')
-                    )
+                    self.leg_goal = self.trajectory(self.leg_adjustment(leg))
                     return
 
 
@@ -905,6 +918,76 @@ class Hexapod(Node):
             print('entering standing state')
             # todo: analyze leg positions currently, and decide how to stand
             self.goto_state(Hexapod.IDLE)
+
+    def stand_up(self):
+        to_the_heavens = []
+        to_standing_high_pose = []
+        to_standing_pose = []
+        the_legs = each_leg()
+        for l_name in the_legs:
+            leg = self.legs[l_name]
+            to_the_heavens.append(
+                default_segment_trajectory_msg(
+                    leg.foot_link,
+                    velocity=self.stand_velocity,
+                    acceleration=0.1,
+                    points=[leg.to_rect(PolarCoord(
+                        angle=0.0,  # was 0.4
+                        distance=self.neutral_radius * 1.1,
+                        z=0.02))]
+                ))
+
+            to_standing_high_pose.append(
+                default_segment_trajectory_msg(
+                    leg.foot_link,
+                    velocity=self.stand_velocity,
+                    acceleration=0.8,
+                    supporting=True,
+                    points=[leg.to_rect(PolarCoord(
+                        angle=0.0,  # was 0.4
+                        distance=self.neutral_radius,
+                        z=-self.base_standing_z * 1.5))]
+                ))
+
+            to_standing_pose.append(
+                default_segment_trajectory_msg(
+                    leg.foot_link,
+                    velocity=0.05,
+                    acceleration=0.01,
+                    supporting=True,
+                    points=[leg.to_rect(PolarCoord(
+                        angle=0.0,  # was 0.4
+                        distance=self.neutral_radius,
+                        z=-self.base_standing_z))]
+                ))
+
+        return [
+            PathTrajectory(id='stand-lift', goal=to_the_heavens),
+            PathTrajectory(id='stand-high', goal=to_standing_high_pose),
+            PathTrajectory(id='stand-down', goal=to_standing_pose)
+        ]
+
+    def leg_adjustment(self, leg: str or Leg, height = 0.02):
+        if isinstance(leg, str):
+            leg = self.legs[leg]
+        up = default_segment_trajectory_msg(
+            leg.foot_link,
+            velocity=self.stand_velocity,
+            supporting=True,
+            points=[leg.to_rect(PolarCoord(
+                angle=0.0,  # was 0.4
+                distance=self.neutral_radius,
+                z=-self.base_standing_z + height))])
+        down = default_segment_trajectory_msg(
+            leg.foot_link,
+            velocity=self.stand_velocity,
+            supporting=True,
+            points=[leg.to_rect(PolarCoord(
+                angle=0.0,  # was 0.4
+                distance=self.neutral_radius,
+                z=-self.base_standing_z))])
+        return [PathTrajectory(up, id='shift-up'),
+                PathTrajectory(down, id='shift-down')]
 
     def move_robot(self):
         if not self.legs or not self.base_pose or math.isnan(self.support_margin):
