@@ -560,10 +560,10 @@ class Hexapod(Node):
             else:
                 print(f'{unit.id} like not like a segment')
 
-        def rejected_unit(result):
+        def rejected_unit():
             nonlocal units
             if len(units) and callable(units[0].rejected):
-                units[0].rejected(result)
+                units[0].rejected()
             next_unit()
 
         def complete_unit(result):
