@@ -21,6 +21,7 @@ from lss_hexapod.action import Walk, Rotate
 from scipy.spatial import ConvexHull
 
 from robot import RobotState
+from noisy import NoisyNumber
 from ros_trajectory_builder import default_segment_trajectory_msg
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
@@ -60,7 +61,7 @@ class Hexapod(Node):
 
     heading = 0
     target_heading = math.inf
-    turn_rate = 0.0
+    turn_rate: NoisyNumber
 
     urdf = None
     robot = None
@@ -95,6 +96,9 @@ class Hexapod(Node):
 
         self.state = RobotState()
         self.support_margin = math.nan
+
+        self.turn_rate = NoisyNumber(0.0, 0.85)
+        self.turn_rate.on_trigger(2.0, self.turn)
 
         self.leg_neighbors = {
             'left-front': ['left-middle', 'right-front'],
@@ -341,21 +345,15 @@ class Hexapod(Node):
             #    print(f'  P{polar}   R{rect}    O{leg.rect.p}')
 
     def motion_callback(self, msg: Motion):
+        # update turn rate
+        # self.target_heading = msg.target_heading
+        self.turn_rate.filter(msg.heading)
+        if self.turn_rate.filtered < 0.2:
+            if self.turn_goal_handle:
+                self.cancel_turning()
+
         if msg.walking_speed > 0.0:
             self.walking_gait_velocity = msg.walking_speed
-
-            # update turn rate
-            #self.target_heading = msg.target_heading
-            if msg.target_heading > 4.0:
-                msg.target_heading = 4.0
-            if abs(msg.target_heading) < 0.2:
-                if self.turn_goal_handle:
-                    self.turn(0.0)
-            elif abs(msg.target_heading - self.turn_rate) > 2.0:
-                # update turn speed
-                self.turn_rate = msg.target_heading
-                self.turn(self.turn_rate)
-
             if self.gait != self.coordinated_tripod_gait:
                 print(f'gait => walk   (speed={msg.walking_speed}')
                 self.set_gait(self.coordinated_tripod_gait)
