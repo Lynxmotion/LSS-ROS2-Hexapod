@@ -578,12 +578,8 @@ class Hexapod(Node):
                 print('end of units')
                 future.set_result(True)
             else:
-                print('next unit')
-                next_task = execute_unit(units[0])
-                if next_task.done():
-                    print('   unit is already done')
+                execute_unit(units[0])
                 units = units[1:]
-                #next_task.add_done_callback(next_unit)
 
         if complete:
             future.add_done_callback(complete)
@@ -844,11 +840,12 @@ class Hexapod(Node):
         elif isinstance(legs, str):
             legs = [self.legs[legs]]
         elif isinstance(legs, Leg):
-            legs [legs]
+            legs = [legs]
         for l in legs:
             if isinstance(l, str):
-                l = self.legs[l]
-            l.state = state
+                self.legs[l].state = state
+            else:
+                l.state = state
 
     def standing_gait(self):
         if self.gait_state == Hexapod.IDLE:
