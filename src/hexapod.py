@@ -386,6 +386,7 @@ class Hexapod(Node):
             complete: typing.Callable = None,
             progress: typing.Callable = None,
             rejected: typing.Callable = None) -> rclpy.task.Future:
+        goal_reached_future = rclpy.task.Future()
         request = EffectorTrajectory.Goal()
         request.goal.header.stamp = self.get_clock().now().to_msg()
         #request.goal.header.frame_id = goal.reference_frame
@@ -395,18 +396,21 @@ class Hexapod(Node):
 
         def handle_result(future):
             result = future.result()
+            goal_reached_future.set_result(result.result.result)
             if complete:
                 complete(result.result.result)
 
         def handle_response(future):
             goal_h = future.result()
             if goal_h.accepted:
+                goal_reached_future.goal_handle = goal_h
                 result_future = goal_h.get_result_async()
                 result_future.add_done_callback(handle_result)
             else:
                 print(f'trajectory request for {goal.segment} rejected')
                 if rejected:
                     rejected()
+                    goal_reached_future.cancel()
 
         def feedback_callback(feedback_msg):
             if progress:
@@ -415,7 +419,7 @@ class Hexapod(Node):
         self.trajectory_client.wait_for_server()
         goal_handle = self.trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
-        return goal_handle
+        return goal_reached_future
 
     def coordinated_trajectory(
                self,
@@ -425,6 +429,7 @@ class Hexapod(Node):
                complete: typing.Callable = None,
                progress: typing.Callable = None,
                rejected: typing.Callable = None) -> rclpy.task.Future:
+        goal_reached_future = rclpy.task.Future()
         request = CoordinatedEffectorTrajectory.Goal()
         request.goal.header.stamp = self.get_clock().now().to_msg()
         #request.goal.header.frame_id = self.base_link
@@ -433,20 +438,25 @@ class Hexapod(Node):
         request.goal.sync_duration = sync_duration
         request.goal.segments = goals
 
+        # goal reached
         def handle_result(future):
             result = future.result()
+            goal_reached_future.set_result(result.result.result)
             if complete:
                 complete(result.result.result)
 
+        # did the action server accept or reject our goal?
         def handle_response(future):
             goal_h = future.result()
             if goal_h.accepted:
+                goal_reached_future.goal_handle = goal_h
                 result_future = goal_h.get_result_async()
                 result_future.add_done_callback(handle_result)
             else:
                 print(f'coordinated trajectory request for {id} rejected')
                 if rejected:
                     rejected()
+                    goal_reached_future.cancel()
 
         def feedback_callback(feedback_msg):
             if progress:
@@ -455,7 +465,7 @@ class Hexapod(Node):
         self.coordinated_trajectory_client.wait_for_server()
         goal_future = self.coordinated_trajectory_client.send_goal_async(request, feedback_callback=feedback_callback)
         goal_future.add_done_callback(handle_response)
-        return goal_future
+        return goal_reached_future
 
     def linear_trajectory(
             self,
@@ -469,6 +479,7 @@ class Hexapod(Node):
             complete: typing.Callable = None,
             progress: typing.Callable = None,
             rejected: typing.Callable = None) -> rclpy.task.Future:
+        goal_reached_future = rclpy.task.Future()
         if not isinstance(effectors, list):
             effectors = [effectors]
         if not isinstance(twists, list):
@@ -491,18 +502,21 @@ class Hexapod(Node):
 
         def handle_result(future):
             result = future.result()
+            goal_reached_future.set_result(result.result.result)
             if complete:
                 complete(result.result.result)
 
         def handle_response(future):
             goal_h = future.result()
             if goal_h.accepted:
+                goal_reached_future.goal_handle = goal_h
                 result_future = goal_h.get_result_async()
                 result_future.add_done_callback(handle_result)
             else:
                 print(f'linear trajectory request for {id} rejected')
                 if rejected:
                     rejected()
+                    goal_reached_future.cancel()
 
         def feedback_callback(feedback_msg):
             if progress:
@@ -511,7 +525,7 @@ class Hexapod(Node):
         self.linear_trajectory_client.wait_for_server()
         goal_handle = self.linear_trajectory_client.send_goal_async(goal, feedback_callback=feedback_callback)
         goal_handle.add_done_callback(handle_response)
-        return goal_handle
+        return goal_reached_future
 
     def trajectory(
             self,
