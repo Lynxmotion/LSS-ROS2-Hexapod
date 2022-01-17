@@ -611,19 +611,30 @@ class Hexapod(Node):
             elif hasattr(self.turn_goal_handle, 'cancel'):
                 print('cancelling turning (future)')
                 self.turn_goal_handle.cancel()
+            if hasattr(self.turn_goal_handle, 'goal_handle'):
+                print('calling goal cancel')
+                def cancel_done(f):
+                    print(f'cancel goal complete {f.result().return_code}')
+                cancel_future = self.turn_goal_handle.goal_handle.cancel_goal_async()
+                cancel_future.add_done_callback(cancel_done)
             self.turn_goal_handle = None
             print("stopped")
 
     def turn(self, speed: float = 0.0):
         """" speed is in degrees/sec """
+        print(f'speed => {speed} deg/sec')
+        if self.gait_state != Hexapod.STANDING or self.gait_state != Hexapod.WALKING:
+            # prevent turning
+            if self.is_goal_active(self.turn_goal_handle):
+                self.cancel_turning()
         if abs(speed) < 0.01:
             self.cancel_turning()
         else:
-            print(f'speed => {speed} deg/sec')
             speed *= math.pi / 180.0  # convert into radians/sec
 
-            def done():
-                self.turn_goal_handle = None
+            def done(result):
+                if result.code != -5:
+                    self.turn_goal_handle = None
                 print('turn stopped')
 
             self.turn_goal_handle = self.linear_trajectory(
