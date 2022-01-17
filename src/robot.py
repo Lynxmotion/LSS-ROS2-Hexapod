@@ -12,20 +12,6 @@ from tween import Tween
 from ros_trajectory_builder import default_segment_trajectory_msg
 
 
-class StateEvent:
-    target: typing.Callable = None
-    handler: typing.Callable = None
-
-    def waitfor(self, target: typing.Callable, handler: typing.Callable):
-        self.target = target
-        self.handler = handler
-
-    def check(self, state: RobotState):
-        if self.target():
-            self.handler()
-            return True
-        else:
-            return False
 
 
 class RobotState:
