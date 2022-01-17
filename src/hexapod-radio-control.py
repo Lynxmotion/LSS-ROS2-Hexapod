@@ -143,7 +143,7 @@ class HexapodRadioControl(Node):
 
             # map yaw to turning speed (rotates the base)
             motion.heading_mode = Motion.DEG_SEC
-            motion.heading = map_midstick(msg.data[3], 100) / 1000.0 * 15.0
+            motion.heading = ppm_remap(map_midstick(msg.data[3], 100), -30.0, +30.0, input_offset=-500)
             #motion.heading = constrain(-15.0, (msg.data[3] - 1500) * 15.0 / 500.0, 15.0)
 
             # map standing height
