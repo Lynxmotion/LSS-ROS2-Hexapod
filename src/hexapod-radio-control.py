@@ -139,12 +139,13 @@ class HexapodRadioControl(Node):
             # map throttle to walking speed
             # unfortunately no reverse...yet
             motion.walking_speed = lift(0.6, ppm_remap(map_throttle(msg.data[2], 1300), 0.0, 6.0, input_offset=0))
-            #motion.walking_speed = constrain(0.0, read_throttle(msg.data[2] - 1000, 1200) * 8.0 / 1000.0, 8.0)
+
+            if map_switch(msg.data[5], 2) == 1:
+                motion.walking_speed = -motion.walking_speed
 
             # map yaw to turning speed (rotates the base)
             motion.heading_mode = Motion.DEG_SEC
             motion.heading = ppm_remap(map_midstick(msg.data[3], 100), -30.0, +30.0, input_offset=-500)
-            #motion.heading = constrain(-15.0, (msg.data[3] - 1500) * 15.0 / 500.0, 15.0)
 
             # map standing height
             motion.standing_height = ppm_remap(msg.data[7], 0.0, 0.1)
