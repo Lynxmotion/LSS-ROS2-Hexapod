@@ -77,6 +77,11 @@ class Hexapod(Node):
     heading = 0
     target_heading = math.inf
     turn_rate: NoisyNumber
+    walking_speed: NoisyNumber
+    walk_reverse: bool
+
+    base_twist: kdl.Twist
+    current_base_twist: kdl.Twist = None
 
     urdf = None
     robot = None
@@ -112,8 +117,14 @@ class Hexapod(Node):
         self.state = RobotState()
         self.support_margin = math.nan
 
-        self.turn_rate = NoisyNumber(0.0, 0.85)
-        self.turn_rate.on_trigger(2.0, self.turn)
+        self.base_twist = kdl.Twist(kdl.Vector(), kdl.Vector())
+        self.turn_rate = NoisyNumber(0.0, 0.85, jump=0.5)
+        self.turn_rate.on_trigger(0.05, self.turn)
+
+        self.walking_speed = NoisyNumber(0.0, 0.80, jump=0.4)
+        self.walking_speed.on_trigger(0.005, self.walk)
+        self.walk_reverse = False
+
 
         self.leg_neighbors = {
             'left-front': ['left-middle', 'right-front'],
@@ -360,21 +371,9 @@ class Hexapod(Node):
             #    print(f'  P{polar}   R{rect}    O{leg.rect.p}')
 
     def motion_callback(self, msg: Motion):
-        # update turn rate
-        # self.target_heading = msg.target_heading
-        self.turn_rate.filter(msg.heading)
-        if self.turn_rate.filtered < 0.2:
-            if self.turn_goal_handle:
-                self.cancel_turning()
-
-        if msg.walking_speed > 0.0:
-            self.walking_gait_velocity = msg.walking_speed
-            if self.gait != self.coordinated_tripod_gait:
-                print(f'gait => walk   (speed={msg.walking_speed}')
-                self.set_gait(self.coordinated_tripod_gait)
-        else:
-            if self.gait != self.standing_gait:
-                self.set_gait(self.standing_gait)
+        # update turn rate, converted to radians
+        self.turn_rate.filter(msg.heading * math.pi / 180.0)
+        self.walking_speed.filter(msg.walking_speed / 60.0)
 
     def clear(self, target_state: bool = False, trajectories: bool = False, limp: bool = False):
         self.reset_client.wait_for_service()
