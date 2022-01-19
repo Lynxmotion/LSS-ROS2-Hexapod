@@ -190,6 +190,10 @@ class Hexapod(Node):
             ConfigureLimb,
             "/robot_control/configure_limb")
 
+        self.set_limb_client = self.create_client(
+            SetLimb,
+            "/robot_control/set_limb")
+
         self.trajectory_client = ActionClient(
             self,
             EffectorTrajectory,
@@ -605,6 +609,19 @@ class Hexapod(Node):
         next_unit()
         return future
 
+    def set_limb_mode(self, limbs: typing.List[str], mode: int or typing.List[int]):
+        self.set_limb_client.wait_for_service()
+        if not isinstance(mode, list):
+            mode = [mode] * len(limbs)
+        request = SetLimb.Request()
+        request.limbs = limbs
+        request.mode = mode
+
+        future = self.set_limb_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        rez = future.result().success if future.done() else False
+        print(f'set support: {rez}')
+        return rez
 
     @staticmethod
     def is_goal_active(goal_handle: ClientGoalHandle):
