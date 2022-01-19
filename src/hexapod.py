@@ -637,247 +637,52 @@ class Hexapod(Node):
     def are_legs_active(self):
         return Hexapod.is_goal_active(self.leg_goal)
 
+    def update_base(self):
+        def done(result):
+            if result.code != -5:
+                self.turn_goal_handle = None
+            print('turn stopped')
+        # todo: do better checking than this
+        if near_zero(self.base_twist.vel.y()) and near_zero(self.base_twist.rot.z()):
+            self.cancel_turning()
+        elif not self.current_base_twist or \
+                not near_equal(self.base_twist.vel, self.current_base_twist.vel, 0.01) or \
+                not near_equal(self.base_twist.rot, self.current_base_twist.rot, 0.01):
+            print(f'speed   linear: {self.base_twist.vel}   rot: {self.base_twist.rot}')
+            self.current_base_twist = kdl.Twist(self.base_twist.vel, self.base_twist.rot)
+            self.turn_goal_handle = self.linear_trajectory(
+                effectors=self.base_link,
+                twists=self.base_twist,
+                angular_acceleration=0.1,
+                complete=done
+            )
+
     def cancel_turning(self):
         if self.turn_goal_handle:
-            if hasattr(self.turn_goal_handle, 'cancel_goal_async'):
-                print('cancelling turning (client goal)')
-                self.turn_goal_handle.cancel_goal_async()
-            elif hasattr(self.turn_goal_handle, 'cancel'):
-                print('cancelling turning (future)')
-                self.turn_goal_handle.cancel()
             if hasattr(self.turn_goal_handle, 'goal_handle'):
                 print('calling goal cancel')
                 def cancel_done(f):
                     print(f'cancel goal complete {f.result().return_code}')
                 cancel_future = self.turn_goal_handle.goal_handle.cancel_goal_async()
                 cancel_future.add_done_callback(cancel_done)
+            elif hasattr(self.turn_goal_handle, 'cancel'):
+                print('cancelling turning (future)')
+                self.turn_goal_handle.cancel()
             self.turn_goal_handle = None
             print("stopped")
 
-    def turn(self, speed: float = 0.0):
+    def turn(self, speed: float):
         """" speed is in degrees/sec """
-        print(f'speed => {speed} deg/sec')
-        if self.gait_state != Hexapod.STANDING or self.gait_state != Hexapod.WALKING:
-            # prevent turning
-            if self.is_goal_active(self.turn_goal_handle):
-                self.cancel_turning()
-        if abs(speed) < 0.01:
-            self.cancel_turning()
-        else:
-            speed *= math.pi / 180.0  # convert into radians/sec
+        rps = speed / 2*math.pi
+        print(f'turn => {rps} rot/sec')
+        self.base_twist.rot.z(speed)
+        self.update_base()
 
-            def done(result):
-                if result.code != -5:
-                    self.turn_goal_handle = None
-                print('turn stopped')
-
-            self.turn_goal_handle = self.linear_trajectory(
-                effectors=self.base_link,
-                twists=kdl.Twist(kdl.Vector(), kdl.Vector(x=0.0, y=0.0, z=speed)),
-                angular_acceleration=0.1,
-                complete=done
-            )
-
-    def move_leg_to(
-            self,
-            leg: Leg or str,
-            point: (PolarCoord or kdl.Frame),
-            reference_frame: str,
-            complete: int or typing.Callable,
-            **kwargs):
-        if isinstance(leg, str):
-            leg = self.legs[leg]
-
-        if isinstance(point, PolarCoord):
-            point = leg.to_rect(point)
-            if reference_frame == self.odom_link:
-                point = self.base_pose * point
-
-        if type(complete) == int:
-            def next_state(result):
-                leg.state = complete
-            on_complete = next_state
-        else:
-            on_complete = complete
-
-        if reference_frame == self.base_link:
-            rot = kdl.Rotation()
-        elif reference_frame == self.odom_link:
-            rot = self.base_pose.M
-
-        traj = default_segment_trajectory_msg(
-            leg.foot_link,
-            velocity=self.walking_gait_velocity,
-            reference_frame=reference_frame,
-            points=[to_vector3(point)],
-            rotations=[to_quaternion(rot)])
-
-        leg.state = Leg.LIFTING
-        print(f'leg lift: {traj.segment}')
-        self.single_trajectory(traj, id='move-leg', complete=on_complete, **kwargs)
-
-    def lift_leg(self, leg: Leg or str, to: PolarCoord, on_complete: typing.Callable = None):
-        if isinstance(leg, str):
-            leg = self.legs[leg]
-
-        traj = leg.lift(to, velocity=self.walking_gait_velocity)
-
-        #def progress(p: TrajectoryProgress):
-        #    #print(f'   leg lift progress: {p.segment}  {p.progress*100:3.1f}% of {p.duration:3.2f}s')
-        #    pass
-
-        def complete(r: TrajectoryComplete):
-            #print(f'leg lift complete: {r.segment} {r.transform.translation}')
-            leg.state = Leg.SUPPORTING
-            # use the ending position of the trajectory as the support position
-            # but now specify it relative to the odom frame
-            #point = self.base_pose * to_kdl_frame(r.transform)
-            #point = to_kdl_frame(r.transform)
-            #self.support_leg(leg, point)
-            if on_complete:
-                on_complete(r)
-
-        leg.state = Leg.LIFTING
-        self.single_trajectory(traj, complete=complete)
-
-    def stance_leg(self, leg: Leg or str, to: kdl.Vector, on_complete: typing.Callable = None):
-        if isinstance(leg, str):
-            leg = self.legs[leg]
-
-        # compute direction to move
-        current_pos = leg.rect.p
-        target_pos = current_pos + to
-
-        def complete(r: TrajectoryComplete):
-            #print(f'leg lift complete: {r.segment} {r.transform.translation}')
-            leg.state = Leg.SUPPORTING
-            # use the ending position of the trajectory as the support position
-            # but now specify it relative to the odom frame
-            #point = self.base_pose * to_kdl_frame(r.transform)
-            #point = to_kdl_frame(r.transform)
-            #self.support_leg(leg, point)
-            if on_complete:
-                on_complete(r)
-
-        leg.state = Leg.ADVANCING
-        print(f'stance leg {leg.name} from {leg.polar} => {to}')
-        support_mode = default_segment_trajectory_msg(
-            leg.foot_link,
-            id='stance-leg',
-            velocity=self.walking_gait_velocity,
-            supporting=True,
-            reference_frame=self.base_link,
-            points=[P(target_pos[0], target_pos[1], leg.origin.p[2] - self.base_standing_z)],
-            rotations=[to_quaternion(leg.rect.M)])
-        self.single_trajectory(support_mode, complete=complete)
-
-    def take_coordinated_step(self):
-        movements = []
-
-        # get leg sets
-        non_supporting = [l for l in self.legs.values() if
-                          l.name not in self.tripod_set[self.tripod_set_supporting]]
-        supporting = [l for l in self.legs.values() if
-                      l.name in self.tripod_set[self.tripod_set_supporting]]
-
-        supporting_state = list(set([l.state for l in supporting]))
-        non_supporting_state = list(set([l.state for l in non_supporting]))
-
-        # if non-supporting set is now supportive, then
-        # lift change the supporting set to lift
-        #non_supportive_is_supporting = reduce(
-        #    lambda a, b: a and b,
-        #    [l.state == Leg.SUPPORTING for l in non_supporting]
-        #)
-
-        # swap the supporting set
-        self.tripod_set_supporting = (self.tripod_set_supporting + 1) % 2
-
-        # perform a leg lift on the supportive set
-        for leg in supporting:
-            to = PolarCoord(
-                angle=-0.2,     # was 0.4
-                distance=self.neutral_radius,
-                z=-self.base_standing_z)
-            #leg.state = Leg.LIFTING
-            #if leg.name == 'left-front':
-            leg.state = Leg.LIFTING
-            traj = leg.lift(to, velocity=self.walking_gait_velocity)
-            movements.append(traj)
-
-        # perform stance move on what is now the new supporting set
-        # first calculate what distance we will move by calculating possible target positions for each foot
-        targets = []
-        for leg in non_supporting:
-            foot = leg.rect
-            dest = leg.to_rect(PolarCoord(angle=0.3, distance=0.10))
-            delta = dest - foot.p
-            distance = math.sqrt(delta[0] * delta[0] + delta[1] * delta[1])
-            targets.append(distance)
-
-        # choose the min distance to be the effective stance move
-        target_distance = min(targets)
-        target_polar = PolarCoord(angle=-math.pi / 2, distance=target_distance)
-
-        #dest = PolarCoord(angle=self.target_heading + math.pi/2, distance=0.2)
-        #print(f'base to {dest.x}, {dest.y}    heading={self.target_heading * 180 / math.pi}  current heading={self.heading * 180 / math.pi}')
-        for leg in non_supporting:
-            #if leg.name == 'left-front':
-            leg.state = Leg.SUPPORTING
-            # compute direction to move
-            to = kdl.Vector(target_polar.x, target_polar.y, 0.)
-            current_pos = leg.rect.p
-            target_pos = current_pos + to
-            # create trajectory
-            support_move = default_segment_trajectory_msg(
-                leg.foot_link,
-                velocity=self.walking_gait_velocity,
-                supporting=True,
-                reference_frame=self.base_link,
-                points=[P(target_pos[0], target_pos[1], leg.origin.p[2] - self.base_standing_z)],
-                rotations=[to_quaternion(leg.rect.M)])
-            movements.append(support_move)
-
-        def take_another_step(result: TrajectoryComplete):
-            # resume walking only if we are still in our tripod gait
-            if self.gait and self.gait == self.coordinated_tripod_gait:
-                if result.code == TrajectoryComplete.SUCCESS:
-                    self.take_coordinated_step()
-                else:
-                    print(f'walking code {result.code}   duration:{result.duration}')
-
-        if len(movements):
-            self.leg_goal = self.coordinated_trajectory(movements, id='walk', complete=take_another_step)
-
-
-    def coordinated_tripod_gait(self):
-        # if stability margin threshold is met, switch sets
-        # if self.support_margin < 0.01:
-        if self.gait_state == Hexapod.IDLE:
-            ready = 0
-            # move any IDLE legs to standing state
-            for leg in self.legs.values():
-                if leg.state == Leg.IDLE:
-                    self.move_leg_to(
-                        leg=leg,
-                        point=PolarCoord(
-                            angle=0.,
-                            distance=self.neutral_radius,
-                            z=-self.base_standing_z),
-                        reference_frame=self.base_link,
-                        complete=Leg.SUPPORTING)
-                elif leg.state == Leg.SUPPORTING:
-                    ready = ready + 1
-            if ready == len(self.legs):
-                #for leg in self.legs.values():
-                #    self.support_leg(leg, PolarCoord(leg.neutral_angle, self.neutral_radius, z=-self.base_standing_z))
-                print("All legs ready!!")
-                self.gait_state = Hexapod.WALKING
-                self.take_coordinated_step()
-        if self.gait_state == Hexapod.STANDING and self.walking_gait_velocity > 0.0:
-            self.gait_state = Hexapod.WALKING
-            self.take_coordinated_step()
-        #elif self.gait_state == Hexapod.WALKING:
+    def walk(self, speed: float):
+        """" speed is in degrees/sec """
+        print(f'walk => {speed*100.0} cm/s')
+        self.base_twist.vel.y(speed)
+        self.update_base()
 
     def goto_state(self, state: int, legs: str or Leg or typing.List[Leg] = None):
         if legs is None:
@@ -893,8 +698,9 @@ class Hexapod(Node):
                 l.state = state
 
     def standing_gait(self):
+        legs_active = self.are_legs_active()
         if self.gait_state == Hexapod.IDLE:
-            if not self.are_legs_active():
+            if not legs_active:
                 print('standing up')
                 units = self.stand_up()
 
@@ -905,7 +711,7 @@ class Hexapod(Node):
                 self.leg_goal = self.trajectory(units, complete=done)
 
         elif self.gait_state == Hexapod.STANDING:
-            if not self.are_legs_active():
+            if not legs_active:
                 # see if we need to do a tripod leg move
                 # (in reaction to turning for example)
                 # start by seeing what legsis more stretched out
@@ -923,8 +729,10 @@ class Hexapod(Node):
                         if max_leg.name in s:
                             # move this set
                             movements = []
+                            legs_to_move = []
                             for sl_name in s:
                                 leg = self.legs[sl_name]
+                                legs_to_move.append(leg.foot_link)
                                 to = PolarCoord(
                                     angle=0.0,  # was 0.4
                                     distance=self.neutral_radius,
@@ -934,7 +742,9 @@ class Hexapod(Node):
                                 leg.state = Leg.LIFTING
                                 traj = leg.lift(to, velocity=self.walking_gait_velocity)
                                 movements.append(traj)
-                            self.leg_goal = self.coordinated_trajectory(movements, id='turn-step')
+                            self.leg_goal = self.coordinated_trajectory(
+                                movements,
+                                id='leg-lift')
                             return
 
                 # see if there is a leg needing adjustment due to large position error
@@ -943,7 +753,6 @@ class Hexapod(Node):
                     print(f'adjusting {leg.name}   e: {leg.error}')
                     self.leg_goal = self.trajectory(self.leg_adjustment(leg))
                     return
-
 
         elif self.gait_state == Hexapod.WALKING:
             print('walk => standing')
@@ -1090,14 +899,8 @@ class Hexapod(Node):
         # todo: make this an idle/still gait (it continuously moves legs to center, most stretched tri first)
         self.gait = None
 
-
     def set_gait(self, gait: typing.Callable):
         self.gait = gait
-
-    def walk(self, heading: float, speed: float, distance: float = None):
-        self.walking_gait_velocity = speed
-        self.set_gait(self.coordinated_tripod_gait)
-
 
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
