@@ -18,17 +18,18 @@ class NoisyNumber:
     trigger_threshold: float
     trigger_callback: typing.Callable
 
-    def __init__(self, value: float, weight=0.75, jump=6.0):
+    def __init__(self, value: float, weight=0.75, jump=None):
         self.latest = self.filtered = value
         self.weight = min(1.0, max(0.0, weight))
         self.jump = jump
         self.updated = datetime.datetime.now()
-        self.trigger_threshold = 2.0
+        self.trigger_threshold = 0.0
+        self.trigger_callback = None
         self.last_event_value = value
 
     def filter(self, v: float):
         now = datetime.datetime.now()
-        if (now - self.updated).seconds > 5.0 or abs(v - self.filtered) > self.jump:
+        if (now - self.updated).seconds > 5.0 or (self.jump and abs(v - self.filtered) > self.jump):
             # no filtering, take the new value as-is
             self.latest = self.filtered = v
         else:
