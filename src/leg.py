@@ -8,6 +8,7 @@ from polar import PolarCoord
 from tween import Tween
 from ros_trajectory_builder import default_segment_trajectory_msg
 
+from robot_model_msgs.msg import SegmentTrajectory
 #
 # Generator expression for enumerating legs
 #
@@ -150,6 +151,8 @@ class Leg:
             self.foot_link,
             velocity=velocity,
             reference_frame='base_link',
+            mode_in=SegmentTrajectory.HOLD,
+            mode_out=SegmentTrajectory.SUPPORT,
             points=[get_point(d/10) for d in range(1, 11)],
             #rotations=[])
             rotations=[to_quaternion(self.rect.M)])

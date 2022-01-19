@@ -15,7 +15,7 @@ from std_msgs.msg import Float64MultiArray, String
 from robot_model_msgs.msg import ModelState, ControlState, Limb, \
     TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
 from robot_model_msgs.action import EffectorTrajectory, CoordinatedEffectorTrajectory, LinearEffectorTrajectory
-from robot_model_msgs.srv import Reset, ConfigureLimb
+from robot_model_msgs.srv import Reset, ConfigureLimb, SetLimb
 from lss_hexapod.msg import Motion
 from lss_hexapod.action import Walk, Rotate
 from scipy.spatial import ConvexHull
@@ -473,7 +473,8 @@ class Hexapod(Node):
             twists: kdl.Twist or typing.List[kdl.Twist],
             linear_acceleration: float = 0.0,
             angular_acceleration: float = 0.0,
-            supporting: bool = False,
+            mode_in: int = SegmentTrajectory.UNCHANGED,
+            mode_out: int = SegmentTrajectory.UNCHANGED,
             sync_duration: bool = True,
             id: str = None,
             complete: typing.Callable = None,
@@ -494,7 +495,8 @@ class Hexapod(Node):
         if id:
             goal.id = id
         #goal.sync_duration = sync_duration
-        goal.supporting = supporting
+        goal.mode_in = mode_in
+        goal.mode_out = mode_out
         goal.linear_acceleration = linear_acceleration
         goal.angular_acceleration = angular_acceleration
         goal.effectors = effectors
@@ -553,7 +555,8 @@ class Hexapod(Node):
                     angular_acceleration=unit.angular_acceleration,
                     id=unit.id,
                     sync_duration=unit.synchronize,
-                    supporting=unit.supporting,
+                    mode_in=unit.mode_in,
+                    mode_out=unit.mode_out,
                     complete=complete_unit,
                     progress=unit.progress,
                     rejected=rejected_unit)
@@ -921,7 +924,7 @@ class Hexapod(Node):
                     default_segment_trajectory_msg(
                         leg.foot_link,
                         velocity=self.stand_velocity,
-                        supporting=True,
+                        mode_in=SegmentTrajectory.SUPPORT,
                         points=[leg.to_rect(PolarCoord(
                             angle=0.0,  # was 0.4
                             distance=self.neutral_radius,
@@ -951,6 +954,7 @@ class Hexapod(Node):
                     leg.foot_link,
                     velocity=self.stand_velocity,
                     acceleration=0.1,
+                    mode_in=SegmentTrajectory.HOLD,
                     points=[leg.to_rect(PolarCoord(
                         angle=0.0,  # was 0.4
                         distance=self.neutral_radius * 1.1,
@@ -961,8 +965,8 @@ class Hexapod(Node):
                 default_segment_trajectory_msg(
                     leg.foot_link,
                     velocity=self.stand_velocity,
-                    acceleration=0.8,
-                    supporting=True,
+                    acceleration=0.2,
+                    mode_in=SegmentTrajectory.SUPPORT,
                     points=[leg.to_rect(PolarCoord(
                         angle=0.0,  # was 0.4
                         distance=self.neutral_radius,
@@ -974,7 +978,7 @@ class Hexapod(Node):
                     leg.foot_link,
                     velocity=0.05,
                     acceleration=0.01,
-                    supporting=True,
+                    mode_out=SegmentTrajectory.SUPPORT,
                     points=[leg.to_rect(PolarCoord(
                         angle=0.0,  # was 0.4
                         distance=self.neutral_radius,

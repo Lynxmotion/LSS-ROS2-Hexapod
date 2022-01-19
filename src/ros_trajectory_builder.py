@@ -147,8 +147,9 @@ def default_segment_trajectory_msg(
         segment: str, start: float = 0.0,
         velocity: float = 1.0,
         acceleration: float = 1.2,
-        supporting: bool = False,
         reference_frame: str = 'base_link',
+        mode_in: int = SegmentTrajectory.UNCHANGED,
+        mode_out: int = SegmentTrajectory.UNCHANGED,
         points: [] = None,
         rotations: [] = None):
     t = SegmentTrajectory()
@@ -158,7 +159,8 @@ def default_segment_trajectory_msg(
     t.profile = 'velocity/trap'
     t.velocity = velocity
     t.acceleration = acceleration
-    t.supporting = supporting
+    t.mode_in = mode_in
+    t.mode_out = mode_out
     t.path = 'rounded'
     t.reference_frame = reference_frame
     t.coordinate_mode = 0

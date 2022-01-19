@@ -53,6 +53,8 @@ class LinearTrajectory(Trajectory):
     twists: kdl.Twist or typing.List[kdl.Twist]
     linear_acceleration: float = 0.0
     angular_acceleration: float = 0.0
+    mode_in: int
+    mode_out: int
     supporting: bool = False
 
     def __init__(
@@ -61,6 +63,8 @@ class LinearTrajectory(Trajectory):
             twists: kdl.Twist or typing.List[kdl.Twist],
             linear_acceleration: float = 0.0,
             angular_acceleration: float = 0.0,
+            mode_in: int = SegmentTrajectory.UNCHANGED,
+            mode_out: int = SegmentTrajectory.UNCHANGED,
             supporting: bool = False,
             synchronize: bool = True,
             id: str = None,
@@ -77,5 +81,7 @@ class LinearTrajectory(Trajectory):
         self.twists = twists
         self.linear_acceleration = linear_acceleration
         self.angular_acceleration = angular_acceleration
+        self.mode_in = mode_in
+        self.mode_out = mode_out
         self.supporting = supporting
 
