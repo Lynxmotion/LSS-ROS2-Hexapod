@@ -50,6 +50,30 @@ def generate_launch_description():
     #    parameters=[robot_description]
     #)
 
+    # This is the BNO-055 driver that's available in the Ros2
+    # binary repo packages. It's python based and seems to be high
+    # CPU and not as good as the bno055_driver C++ implementation
+    # remappings = [('/imu/imu', '/imu/data')]
+    #imu_py = Node(
+    #    name="imu",
+    #    package='bno055',
+    #    executable='bno055',
+    #    remappings=remappings,
+    #    output='screen',
+    #    parameters=[robot_controllers])
+
+    imu = Node(
+        name="imu",
+        package='bno055_driver',
+        executable='bno055_driver',
+        output='screen',
+        parameters=[robot_controllers])
+
+    joystick = Node(
+        package="rpi_ppm_input",
+        executable="ppm_input",
+        output="screen")
+
     return LaunchDescription([
       Node(
         package='controller_manager',
@@ -60,6 +84,8 @@ def generate_launch_description():
           'stderr': 'screen',
           },
         ),
+        imu,
+        joystick
         #joint_state_publisher_node,
         #robot_state_publisher_node
     ])
