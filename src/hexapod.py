@@ -743,8 +743,11 @@ class Hexapod(Node):
                                 # leg.state = Leg.LIFTING
                                 # if leg.name == 'left-front':
                                 leg.state = Leg.LIFTING
-                                traj = leg.lift(to, velocity=self.walking_gait_velocity)
-                                movements.append(traj)
+                                #traj = leg.lift(to, velocity=self.walking_gait_velocity)
+                                #movements.append(traj)
+                                traj = leg.lift_2stage(to, velocity=self.walking_gait_velocity)
+                                movements.extend(traj)
+
                             self.leg_goal = self.coordinated_trajectory(
                                 movements,
                                 id='leg-lift')

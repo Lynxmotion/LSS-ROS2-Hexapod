@@ -156,3 +156,42 @@ class Leg:
             points=[get_point(d/10) for d in range(1, 11)],
             #rotations=[])
             rotations=[to_quaternion(self.rect.M)])
+
+    def lift_2stage(self, polar: PolarCoord, velocity: float, lift: float = 0.02):
+        fr = self.polar
+
+        print(f'lift leg {self.name} from {fr} => {polar}')
+        if math.isnan(polar.zlocal):
+            polar.zlocal = fr.zlocal
+        tw_dist = Tween(fr, polar)
+
+        # a helper function to tween between current leg position and target position [0 - 1.]
+        def get_point(p: float):
+            # lift leg in a semicircle as we proceed to target
+            v: PolarCoord = tw_dist.get(p)
+
+            # transform from polar to rectangular in odom frame
+            r = self.to_rect(v)
+
+            # add in Z lift as an arc
+            r[2] += lift * math.sin(p * math.pi)
+            #print(f'   {p:2.1f} => {v} => {r[0]} {r[1]} {r[2]}')
+            return to_vector3(r)
+
+        return [default_segment_trajectory_msg(
+                self.foot_link,
+                velocity=velocity,
+                reference_frame='base_link',
+                mode_in=SegmentTrajectory.HOLD,
+                points=[get_point(d/10) for d in range(1, 5)],
+                rotations=[to_quaternion(self.rect.M)]),
+            default_segment_trajectory_msg(
+                self.foot_link,
+                velocity=velocity,
+                reference_frame='base_link',
+                mode_in=SegmentTrajectory.HOLD,
+                mode_out=SegmentTrajectory.SUPPORT,
+                points=[get_point(d / 10) for d in range(5, 11)],
+                # rotations=[])
+                rotations=[to_quaternion(self.rect.M)]),
+            ]
