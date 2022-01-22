@@ -731,29 +731,40 @@ class Hexapod(Node):
                     for s in self.tripod_set:
                         if max_leg.name in s:
                             # move this set
-                            movements = []
-                            legs_to_move = []
+                            movements_up = []
+                            movements_down = None       # switch which lift pattern is used
                             for sl_name in s:
                                 leg = self.legs[sl_name]
-                                legs_to_move.append(leg.foot_link)
+                                leg.state = Leg.LIFTING
                                 to = PolarCoord(
                                     angle=0.0,  # was 0.4
                                     distance=self.neutral_radius,
                                     z=-self.base_standing_z)
-                                # leg.state = Leg.LIFTING
-                                # if leg.name == 'left-front':
-                                leg.state = Leg.LIFTING
-                                #traj = leg.lift(to, velocity=self.walking_gait_velocity)
-                                #movements.append(traj)
-                                traj = leg.lift_2stage(to, velocity=self.walking_gait_velocity)
-                                movements.extend(traj)
 
-                            self.leg_goal = self.coordinated_trajectory(
-                                movements,
-                                id='leg-lift')
+                                if not movements_down:
+                                    # single trajectory for up and down phase
+                                    traj = leg.lift(to, velocity=self.walking_gait_velocity)
+                                    movements_up.append(traj)
+                                else:
+                                    # separate trajectory for up and down phase
+                                    traj_up, traj_down = leg.lift_2stage(to, velocity=self.walking_gait_velocity)
+                                    movements_up.append(traj_up)
+                                    movements_down.append(traj_down)
+
+                            if not movements_down:
+                                self.leg_goal = self.coordinated_trajectory(
+                                    movements_up,
+                                    id='leg-lift')
+                            else:
+                                self.leg_goal = self.trajectory([
+                                    PathTrajectory(id='leg-lift', goal=movements_up),
+                                    PathTrajectory(id='leg-lift', goal=movements_down)
+                                ])
+
                             return
 
                 # see if there is a leg needing adjustment due to large position error
+                return
                 leg = max(self.legs.values(), key=attrgetter('error'))
                 if leg.error > 0.02:
                     print(f'adjusting {leg.name}   e: {leg.error}')
