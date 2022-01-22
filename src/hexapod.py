@@ -108,7 +108,7 @@ class Hexapod(Node):
     timestep = 0
 
     leg_goal: rclpy.task.Future = None
-    turn_goal_handle: rclpy.task.Future = None
+    base_goal_handle: rclpy.task.Future = None
 
     def __init__(self, args):
         super().__init__('hexapod')
@@ -375,9 +375,14 @@ class Hexapod(Node):
             #    print(f'  P{polar}   R{rect}    O{leg.rect.p}')
 
     def motion_callback(self, msg: Motion):
-        # update turn rate, converted to radians
-        self.turn_rate.filter(msg.heading * math.pi / 180.0)
-        self.walking_speed.filter(msg.walking_speed / 60.0)
+        if near_zero(msg.heading) and near_zero(msg.walking_speed):
+            self.cancel_base_motion()
+            self.turn_rate.set(0)
+            self.walking_speed.set(0)
+        else:
+            # update turn rate, converted to radians
+            self.turn_rate.filter(msg.heading * math.pi / 180.0)
+            self.walking_speed.filter(msg.walking_speed / 60.0)
 
     def clear(self, target_state: bool = False, trajectories: bool = False, limp: bool = False):
         self.reset_client.wait_for_service()
@@ -640,35 +645,33 @@ class Hexapod(Node):
     def update_base(self):
         def done(result):
             if result.code != -5:
-                self.turn_goal_handle = None
+                self.base_goal_handle = None
             print('turn stopped')
         # todo: do better checking than this
-        if near_zero(self.base_twist.vel.y()) and near_zero(self.base_twist.rot.z()):
-            self.cancel_turning()
-        elif not self.current_base_twist or \
+        if not self.current_base_twist or \
                 not near_equal(self.base_twist.vel, self.current_base_twist.vel, 0.01) or \
                 not near_equal(self.base_twist.rot, self.current_base_twist.rot, 0.01):
             print(f'speed   linear: {self.base_twist.vel}   rot: {self.base_twist.rot}')
             self.current_base_twist = kdl.Twist(self.base_twist.vel, self.base_twist.rot)
-            self.turn_goal_handle = self.linear_trajectory(
+            self.base_goal_handle = self.linear_trajectory(
                 effectors=self.base_link,
                 twists=self.base_twist,
                 angular_acceleration=0.1,
                 complete=done
             )
 
-    def cancel_turning(self):
-        if self.turn_goal_handle:
-            if hasattr(self.turn_goal_handle, 'goal_handle'):
+    def cancel_base_motion(self):
+        if self.base_goal_handle:
+            if hasattr(self.base_goal_handle, 'goal_handle'):
                 print('calling goal cancel')
                 def cancel_done(f):
                     print(f'cancel goal complete {f.result().return_code}')
-                cancel_future = self.turn_goal_handle.goal_handle.cancel_goal_async()
+                cancel_future = self.base_goal_handle.goal_handle.cancel_goal_async()
                 cancel_future.add_done_callback(cancel_done)
-            elif hasattr(self.turn_goal_handle, 'cancel'):
+            elif hasattr(self.base_goal_handle, 'cancel'):
                 print('cancelling turning (future)')
-                self.turn_goal_handle.cancel()
-            self.turn_goal_handle = None
+                self.base_goal_handle.cancel()
+            self.base_goal_handle = None
             print("stopped")
 
     def turn(self, speed: float):
@@ -904,7 +907,7 @@ class Hexapod(Node):
 
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
-        self.cancel_turning()
+        self.cancel_base_motion()
         self.shutdown = True
 
     def run(self):
