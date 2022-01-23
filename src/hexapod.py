@@ -3,6 +3,7 @@ import signal
 import rclpy
 import time
 import math
+import datetime
 import typing
 from functools import reduce
 from operator import attrgetter
@@ -59,6 +60,11 @@ class Hexapod(Node):
     walking_gait_velocity = 1.2
     stand_velocity = 0.4
 
+    # milliseconds between each desired leg movement
+    # we may move sooner but we try to walk to this beat
+    beat = datetime.timedelta
+    next_beat: datetime = None
+
     heading = 0
     target_heading = math.inf
     turn_rate: NoisyNumber
@@ -109,6 +115,8 @@ class Hexapod(Node):
         self.walking_speed = NoisyNumber(0.0, 0.80, jump=0.4)
         self.walking_speed.on_trigger(0.005, self.walk)
         self.walk_reverse = False
+
+        self.beat = datetime.timedelta(milliseconds=900)
 
 
         self.leg_neighbors = {
@@ -686,6 +694,16 @@ class Hexapod(Node):
                 l.state = state
 
     def standing_gait(self):
+        now = datetime.datetime.now()
+        beat_now = False
+        if not self.next_beat:
+            self.next_beat = now + self.beat
+        elif self.next_beat < now:
+            self.next_beat = now + self.beat
+            if self.base_goal_handle:
+                beat_now = True
+                print('beat')
+
         legs_active = self.are_legs_active()
         if self.gait_state == Hexapod.IDLE:
             if not legs_active:
@@ -712,7 +730,7 @@ class Hexapod(Node):
                         max_leg = leg
                         max_angle = abs(polar.angle)
 
-                if max_angle > 0.35:    # 20 degrees
+                if max_angle > 0.35 or beat_now:    # 20 degrees
                     # move the set of legs that includes this leg
                     for s in self.tripod_set:
                         if max_leg.name in s:
