@@ -703,6 +703,7 @@ class Hexapod(Node):
                 # see if we need to do a tripod leg move
                 # (in reaction to turning for example)
                 # start by seeing what legsis more stretched out
+                target_angle = 0.0       # was 0.4
                 max_leg: Leg = None
                 max_angle = 0.0
                 for leg in self.legs.values():
@@ -722,9 +723,14 @@ class Hexapod(Node):
                                 leg = self.legs[sl_name]
                                 leg.state = Leg.LIFTING
                                 to = PolarCoord(
-                                    angle=0.0,  # was 0.4
+                                    angle=target_angle,
                                     distance=self.neutral_radius,
                                     z=-self.base_standing_z)
+                                if to.near(leg.polar, 0.08, 0.01):
+                                    # this leg is already close enough to destination
+                                    # no need to lift
+                                    print(f'supressing leg {leg.name}')
+                                    continue
 
                                 if not movements_down:
                                     # single trajectory for up and down phase
