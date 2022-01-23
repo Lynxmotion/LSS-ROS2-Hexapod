@@ -27,26 +27,11 @@ import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
 from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, to_geo_twist, P, R
 
-from polar import PolarCoord
+from polar import PolarCoord, near_equal, near_zero
 from leg import Leg, each_leg, tripod_set
 from trajectory import PathTrajectory, LinearTrajectory
 
 DynamicObject = lambda **kwargs: type("Object", (), kwargs)
-
-epsilon = 0.00001
-
-
-def near_zero(x1: float):
-    return abs(x1) < epsilon
-
-
-def near_equal(x1: float or kdl.Vector, x2: float or kdl.Vector, eps: float = epsilon):
-    if type(x1) != type(x2):
-        raise TypeError('near_equal requires the args to be the same type')
-    elif isinstance(x1, kdl.Vector):
-        return near_equal(x1.x(), x2.x(), eps) and near_equal(x1.y(), x2.y(), eps) and  near_equal(x1.z(), x2.z(), eps)
-    else:
-        return abs(x1 - x2) < eps
 
 
 class Hexapod(Node):

@@ -5,6 +5,19 @@ from geometry_msgs.msg import Vector3
 import PyKDL as kdl
 from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P, R
 
+epsilon = 0.00001
+
+def near_zero(x1: float):
+    return abs(x1) < epsilon
+
+
+def near_equal(x1: float or kdl.Vector, x2: float or kdl.Vector, eps: float = epsilon):
+    if type(x1) != type(x2):
+        raise TypeError('near_equal requires the args to be the same type')
+    elif isinstance(x1, kdl.Vector):
+        return near_equal(x1.x(), x2.x(), eps) and near_equal(x1.y(), x2.y(), eps) and  near_equal(x1.z(), x2.z(), eps)
+    else:
+        return abs(x1 - x2) < eps
 
 
 class PolarCoord:
@@ -33,6 +46,12 @@ class PolarCoord:
                 not math.isclose(self.distance, other.distance, rel_tol=0.000001) or
                 not math.isclose(self.z, self.z, rel_tol=0.000001)) if isinstance(other, PolarCoord) else True
 
+    def near(self, other, angle_eps: float = 0.035, distance_eps = 0.005):
+        if isinstance(other, PolarCoord):
+            return near_equal(self.angle, other.angle, angle_eps) \
+                   and near_equal(self.distance, other.distance, distance_eps)
+        else:
+            return False
 
     def __str__(self):
         return f'{self.angle*180/math.pi:4.1f}° {self.distance:6.4f}m Z{self.z}'
