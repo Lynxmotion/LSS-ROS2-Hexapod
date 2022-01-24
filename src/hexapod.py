@@ -764,35 +764,13 @@ class Hexapod(Node):
                         self.leg_goal = self.trajectory(self.leg_adjustment(leg))
                         return
 
-        elif self.gait_state == Hexapod.WALKING:
-            print('walk => standing')
-            # stand the robot up
-            to_standing_pose = []
-            for l_name in each_leg():
-                leg = self.legs[l_name]
-                to_standing_pose.append(
-                    default_segment_trajectory_msg(
-                        leg.foot_link,
-                        velocity=self.stand_velocity,
-                        mode_in=SegmentTrajectory.SUPPORT,
-                        points=[leg.to_rect(PolarCoord(
-                            angle=0.0,  # was 0.4
-                            distance=self.neutral_radius,
-                            z=-self.base_standing_z))]
-                    ))
-
-            self.gait_state = Hexapod.STANDING
-            self.leg_goal = self.coordinated_trajectory(
-                to_standing_pose,
-                id='stand-up',
-                complete=lambda res: self.goto_state(Leg.SUPPORTING))
-
         else:
             print('entering standing state')
             # todo: analyze leg positions currently, and decide how to stand
             self.goto_state(Hexapod.IDLE)
 
     def step_tripod_set(self, leg_set, target_angle: float):
+        """ Take a step with a tri-set using a single trajectory action sequence. """
         movements = []
         for sl_name in leg_set:
             leg = self.legs[sl_name]
@@ -816,6 +794,8 @@ class Hexapod(Node):
             id='leg-lift')
 
     def step_tripod_set_2phase(self, leg_set, target_angle: float):
+        """ Take a step with a tri-set using 2 consecutive trajectory action sequences.
+            This is to try and prevent Orokos path following errors """
         movements_up = []
         movements_down = []  # switch which lift pattern is used
         for sl_name in leg_set:
@@ -842,6 +822,7 @@ class Hexapod(Node):
         ])
 
     def stand_up(self):
+        """Return a path that stands the robot up """
         to_the_heavens = []
         to_standing_high_pose = []
         to_standing_pose = []
