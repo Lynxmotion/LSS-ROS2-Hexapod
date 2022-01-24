@@ -274,67 +274,74 @@ class Hexapod(Node):
             self.model_state = msg
 
             # self.world = to_kdl_frame(msg.world)
-            self.odom = to_kdl_frame(msg.odom)
-            self.base_pose = to_kdl_frame(msg.base_pose)
+            self.odom = to_kdl_frame(self.model_state.odom)
+            self.base_pose = to_kdl_frame(self.model_state.base_pose)
 
             self.CoP = to_kdl_vector(self.model_state.support.center_of_pressure)
 
-            # get position of support legs relative to odom frame
-            #support_legs = [self.base_pose * l.rect for l_name, l in self.legs.items() if l.state == Leg.SUPPORTING]
-            support_legs = [self.base_pose * l.rect for l in self.legs.values() if
-                              l.rect is not None and l.name in self.tripod_set[self.tripod_set_supporting]]
-            if len(support_legs) < 3:
-                return
+    def compute_support_margin_of_supporting_set(self):
+        # todo: remove me if you can
+        # this will run the old support_margin function
+        margin = self.compute_support_margin(self.tripod_set[self.tripod_set_supporting])
+        self.support_margin = margin
 
-            # now make triangles between each pair of support legs and the CoP,
-            # figure out what the min(hyp) is of the triangles.
-            # see: https://hackaday.io/project/21904-hexapod-modelling-path-planning-and-control/log/62326-3-fundamentals-of-hexapod-robot
+    def compute_support_margin(self, legs: typing.List[str]):
 
-            # convert the list of legs into pairs
-            # for 2-3 legs this is trivial, for more than 3 legs we have an over-constrained kinematic connection
-            # with the floor and must calculate the "convext hull" polygon of the legs in order to create our pairs
-            if len(support_legs) <= 2:
-                # no kinematic connection...we're probably falling. Ayeeeeeeeee!
-                self.support_margin = 0
-                return
-            elif len(support_legs) <= 3:
-                # cross match each pair
-                lp = [[l.p.x(), l.p.y()] for l in support_legs]
-                leg_pairs = [
-                    (lp[0], lp[1]),
-                    (lp[1], lp[2]),
-                    (lp[2], lp[0])
-                ]
-            else:
-                # create array of points (array), call convex, get an array of points
-                # back representing a polygon that surrounds all given points
-                points = [[l.p.x(), l.p.y()] for l in support_legs]
-                hull = ConvexHull(points)
+        # get position of support legs relative to odom frame
+        # support_legs = [self.base_pose * l.rect for l_name, l in self.legs.items() if l.state == Leg.SUPPORTING]
+        # todo: possibly remove conversion to odom frame (we can base it on robot frame)
+        support_legs = [self.base_pose * l.rect for l in self.legs.values() if
+                        l.rect is not None and l.name in legs]
+        if len(support_legs) < 3:
+            # no kinematic connection...we're probably falling. Ayeeeeeeeee!
+            # no support margin for a non-kinematic attachment to ground
+            return 0.0
 
-                # todo: any leg points not in hull polygon should go to lift
+        # now make triangles between each pair of support legs and the CoP,
+        # figure out what the min(hyp) is of the triangles.
+        # see: https://hackaday.io/project/21904-hexapod-modelling-path-planning-and-control/log/62326-3-fundamentals-of-hexapod-robot
 
-                leg_pairs = []
-                last_p = None
-                for p in hull.points:
-                    if last_p is not None:
-                        leg_pairs.append((last_p, p))
-                    last_p = p
+        # convert the list of legs into pairs
+        # for 2-3 legs this is trivial, for more than 3 legs we have an over-constrained kinematic connection
+        # with the floor and must calculate the "convext hull" polygon of the legs in order to create our pairs
+        elif len(support_legs) == 3:
+            # cross match each pair
+            lp = [[l.p.x(), l.p.y()] for l in support_legs]
+            leg_pairs = [
+                (lp[0], lp[1]),
+                (lp[1], lp[2]),
+                (lp[2], lp[0])
+            ]
+        else:
+            # create array of points (array), call convex, get an array of points
+            # back representing a polygon that surrounds all given points
+            points = [[l.p.x(), l.p.y()] for l in support_legs]
+            hull = ConvexHull(points)
 
-            # take your points and go home
-            # calculate height for each point
-            h = []
-            C = self.CoP
-            for p1, p2 in leg_pairs:
-                # |(X1-Xc)*(Y5-Yc)-(X5-Xc)*(Y1-Yc)|
-                area = 0.5 * math.fabs((p1[0] - C[0])*(p2[1] - C[1])-(p2[0] - C[0])*(p1[1] - C[2]))
-                # | L1 |=√((X5 - X1) ^ 2 + (Y5 - Y1) ^ 2)
-                p1_p2_length = math.sqrt((p2[0] - p1[0])*(p2[0] - p1[0]) + (p2[1] - p1[1])*(p2[1] - p1[1]))
-                h1 = (2 * area) / math.fabs(p1_p2_length) if p1_p2_length > 0.0 else 0.0
-                h.append(h1)
+            # todo: any leg points not in hull polygon should go to lift
 
-            min_h = reduce(lambda a, b: a if a < b else b, h)
-            self.support_margin = min_h
-            #print(f'CoP: {self.model_state.header.frame_id} supporting:{len(support_legs)}:{len(leg_pairs)} margin:{min_h:6.4f}')
+            leg_pairs = []
+            last_p = None
+            for p in hull.points:
+                if last_p is not None:
+                    leg_pairs.append((last_p, p))
+                last_p = p
+
+        # take your points and go home
+        # calculate height for each point
+        h = []
+        C = self.CoP
+        for p1, p2 in leg_pairs:
+            # |(X1-Xc)*(Y5-Yc)-(X5-Xc)*(Y1-Yc)|
+            area = 0.5 * math.fabs((p1[0] - C[0]) * (p2[1] - C[1]) - (p2[0] - C[0]) * (p1[1] - C[2]))
+            # | L1 |=√((X5 - X1) ^ 2 + (Y5 - Y1) ^ 2)
+            p1_p2_length = math.sqrt((p2[0] - p1[0]) * (p2[0] - p1[0]) + (p2[1] - p1[1]) * (p2[1] - p1[1]))
+            h1 = (2 * area) / math.fabs(p1_p2_length) if p1_p2_length > 0.0 else 0.0
+            h.append(h1)
+
+        min_h = reduce(lambda a, b: a if a < b else b, h)
+        return min_h
+        # print(f'CoP: {self.model_state.header.frame_id} supporting:{len(support_legs)}:{len(leg_pairs)} margin:{min_h:6.4f}')
 
     def control_state_callback(self, msg: ControlState):
         if not self.legs:
@@ -696,10 +703,12 @@ class Hexapod(Node):
     def standing_gait(self):
         now = datetime.datetime.now()
         beat_now = False
+        support_margins = None
         if not self.next_beat:
             self.next_beat = now + self.beat
         elif self.next_beat < now:
             self.next_beat = now + self.beat
+            support_margins = [self.compute_support_margin(s) for s in self.tripod_set]
             if self.base_goal_handle:
                 beat_now = True
                 print('beat')
@@ -718,67 +727,42 @@ class Hexapod(Node):
 
         elif self.gait_state == Hexapod.STANDING:
             if not legs_active:
-                # see if we need to do a tripod leg move
-                # (in reaction to turning for example)
-                # start by seeing what legsis more stretched out
-                target_angle = 0.0       # was 0.4
-                max_leg: Leg = None
-                max_angle = 0.0
-                for leg in self.legs.values():
-                    polar = leg.polar
-                    if not max_leg or abs(polar.angle) > max_angle:
-                        max_leg = leg
-                        max_angle = abs(polar.angle)
+                target_angle = 0.0  # was 0.4
 
-                if max_angle > 0.35 or beat_now:    # 20 degrees
-                    # move the set of legs that includes this leg
-                    for s in self.tripod_set:
-                        if max_leg.name in s:
-                            # move this set
-                            movements_up = []
-                            movements_down = None       # switch which lift pattern is used
-                            for sl_name in s:
-                                leg = self.legs[sl_name]
-                                leg.state = Leg.LIFTING
-                                to = PolarCoord(
-                                    angle=target_angle,
-                                    distance=self.neutral_radius,
-                                    z=-self.base_standing_z)
-                                if to.near(leg.polar, 0.08, 0.01):
-                                    # this leg is already close enough to destination
-                                    # no need to lift
-                                    print(f'supressing leg {leg.name}')
-                                    continue
+                if beat_now:
+                    # choose the tripod set with the lowest support margin
+                    lowest_margin_index = 0 if len(support_margins) < 2 or support_margins[0] < support_margins[
+                        1] else 1
+                    s = self.tripod_set[lowest_margin_index]
+                    self.step_tripod_set(s, target_angle)
 
-                                if not movements_down:
-                                    # single trajectory for up and down phase
-                                    traj = leg.lift(to, velocity=self.walking_gait_velocity)
-                                    movements_up.append(traj)
-                                else:
-                                    # separate trajectory for up and down phase
-                                    traj_up, traj_down = leg.lift_2stage(to, velocity=self.walking_gait_velocity)
-                                    movements_up.append(traj_up)
-                                    movements_down.append(traj_down)
+                else:
+                    # see if we need to do a tripod leg move
+                    # (in reaction to turning for example)
+                    # start by seeing what legsis more stretched out
+                    max_leg: Leg = None
+                    max_angle = 0.0
+                    for leg in self.legs.values():
+                        polar = leg.polar
+                        if not max_leg or abs(polar.angle) > max_angle:
+                            max_leg = leg
+                            max_angle = abs(polar.angle)
 
-                            if not movements_down:
-                                self.leg_goal = self.coordinated_trajectory(
-                                    movements_up,
-                                    id='leg-lift')
-                            else:
-                                self.leg_goal = self.trajectory([
-                                    PathTrajectory(id='leg-lift', goal=movements_up),
-                                    PathTrajectory(id='leg-lift', goal=movements_down)
-                                ])
+                    if False and max_angle > 0.35:    # 20 degrees
+                        # move the set of legs that includes this leg
+                        for s in self.tripod_set:
+                            if max_leg.name in s:
+                                # move this set
+                                self.step_tripod_set(s, target_angle)
+                                return
 
-                            return
-
-                # see if there is a leg needing adjustment due to large position error
-                return
-                leg = max(self.legs.values(), key=attrgetter('error'))
-                if leg.error > 0.02:
-                    print(f'adjusting {leg.name}   e: {leg.error}')
-                    self.leg_goal = self.trajectory(self.leg_adjustment(leg))
+                    # see if there is a leg needing adjustment due to large position error
                     return
+                    leg = max(self.legs.values(), key=attrgetter('error'))
+                    if leg.error > 0.02:
+                        print(f'adjusting {leg.name}   e: {leg.error}')
+                        self.leg_goal = self.trajectory(self.leg_adjustment(leg))
+                        return
 
         elif self.gait_state == Hexapod.WALKING:
             print('walk => standing')
@@ -807,6 +791,55 @@ class Hexapod(Node):
             print('entering standing state')
             # todo: analyze leg positions currently, and decide how to stand
             self.goto_state(Hexapod.IDLE)
+
+    def step_tripod_set(self, leg_set, target_angle: float):
+        movements = []
+        for sl_name in leg_set:
+            leg = self.legs[sl_name]
+            leg.state = Leg.LIFTING
+            to = PolarCoord(
+                angle=target_angle,
+                distance=self.neutral_radius,
+                z=-self.base_standing_z)
+            if to.near(leg.polar, 0.08, 0.01):
+                # this leg is already close enough to destination
+                # no need to lift
+                print(f'supressing leg {leg.name}')
+                continue
+
+            # single trajectory for up and down phase
+            traj = leg.lift(to, velocity=self.walking_gait_velocity)
+            movements.append(traj)
+
+        self.leg_goal = self.coordinated_trajectory(
+            movements,
+            id='leg-lift')
+
+    def step_tripod_set_2phase(self, leg_set, target_angle: float):
+        movements_up = []
+        movements_down = []  # switch which lift pattern is used
+        for sl_name in leg_set:
+            leg = self.legs[sl_name]
+            leg.state = Leg.LIFTING
+            to = PolarCoord(
+                angle=target_angle,
+                distance=self.neutral_radius,
+                z=-self.base_standing_z)
+            if to.near(leg.polar, 0.08, 0.01):
+                # this leg is already close enough to destination
+                # no need to lift
+                print(f'supressing leg {leg.name}')
+                continue
+
+            # separate trajectory for up and down phase
+            traj_up, traj_down = leg.lift_2stage(to, velocity=self.walking_gait_velocity)
+            movements_up.append(traj_up)
+            movements_down.append(traj_down)
+
+        self.leg_goal = self.trajectory([
+            PathTrajectory(id='leg-lift', goal=movements_up),
+            PathTrajectory(id='leg-lift', goal=movements_down)
+        ])
 
     def stand_up(self):
         to_the_heavens = []
@@ -880,7 +913,7 @@ class Hexapod(Node):
                 PathTrajectory(down, id='shift-down')]
 
     def move_robot(self):
-        if not self.legs or not self.base_pose or math.isnan(self.support_margin):
+        if not self.legs or not self.base_pose:
             return          # wait for all the meta information we need
 
         if self.walk_goal:
