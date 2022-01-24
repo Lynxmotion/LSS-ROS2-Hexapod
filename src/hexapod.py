@@ -700,7 +700,7 @@ class Hexapod(Node):
             else:
                 l.state = state
 
-    def standing_gait(self):
+    def tripod_gait(self):
         now = datetime.datetime.now()
         beat_now = False
         support_margins = None
@@ -983,7 +983,7 @@ def main(args=sys.argv):
     #node.stand_and_sit()
     #node.stand_up()
     #node.walk(math.pi/2, 0.5)
-    node.set_gait(node.standing_gait)
+    node.set_gait(node.tripod_gait)
     node.run()
 
 
