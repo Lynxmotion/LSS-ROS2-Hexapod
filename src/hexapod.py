@@ -118,7 +118,9 @@ class Hexapod(Node):
         self.walking_speed.on_trigger(0.005, self.walk)
         self.walk_reverse = False
 
-        self.beat = datetime.timedelta(milliseconds=900)
+        # todo: change this according to walk speed (approx 1200 down to 500, slow to fast respectively)
+        # todo: we can also slow beat if activity metric is slow
+        self.beat = datetime.timedelta(milliseconds=600)
 
 
         self.leg_neighbors = {
@@ -656,6 +658,7 @@ class Hexapod(Node):
             print(f'speed   linear: {self.base_twist.vel}   rot: {self.base_twist.rot}')
             self.current_base_twist = kdl.Twist(self.base_twist.vel, self.base_twist.rot)
             self.base_goal_handle = self.linear_trajectory(
+                id='body',
                 effectors=self.base_link,
                 twists=self.base_twist,
                 angular_acceleration=0.1,
@@ -703,20 +706,29 @@ class Hexapod(Node):
                 l.state = state
 
     def tripod_gait(self):
+        #
+        # We manage a beat (like a musical beat) for coordinating leg motion.
+        # We can move in-between beats if stability warrants it but try to stay on a bat
+        # so our gaits look more natural.
         now = datetime.datetime.now()
         beat_now = False
         support_margins = None
         if not self.next_beat:
             self.next_beat = now + self.beat
         elif self.next_beat < now:
+            # we are at a beat
+            beat_now = True
             self.next_beat = now + self.beat
+            # compute the support margins of our leg sets
+            # we can react with new trajectories if our support is suffering
             support_margins = [self.compute_support_margin(s) for s in self.tripod_set]
-            if self.base_goal_handle:
-                beat_now = True
-                print('beat')
+            print(f'support margins: ', ', '.join([str(round(v, 4)) for v in support_margins]))
 
+        # check if our legs are already performing an active trajectory
         legs_active = self.are_legs_active()
+
         if self.gait_state == Hexapod.IDLE:
+            # our robot is sitting, perform the standing action
             if not legs_active:
                 print('standing up')
                 units = self.stand_up()
@@ -728,43 +740,48 @@ class Hexapod(Node):
                 self.leg_goal = self.trajectory(units, complete=done)
 
         elif self.gait_state == Hexapod.STANDING:
+            # react to our leg states and initiate leg lifts if required
             if not legs_active:
                 target_angle = 0.0  # was 0.4
 
                 if beat_now:
-                    # choose the tripod set with the lowest support margin
-                    lowest_margin_index = 0 if len(support_margins) < 2 or support_margins[0] < support_margins[
-                        1] else 1
-                    s = self.tripod_set[lowest_margin_index]
-                    self.step_tripod_set(s, target_angle)
+                    # we are on a beat and encouraged to move legs at this time
+                    move_tripod_set: typing.List[str] = None        # list of legs to lift
 
-                else:
-                    # see if we need to do a tripod leg move
-                    # (in reaction to turning for example)
-                    # start by seeing what legsis more stretched out
-                    max_leg: Leg = None
-                    max_angle = 0.0
-                    for leg in self.legs.values():
-                        polar = leg.polar
-                        if not max_leg or abs(polar.angle) > max_angle:
-                            max_leg = leg
-                            max_angle = abs(polar.angle)
+                    # if support margin is near equal, then choose based on angle
+                    if near_equal(support_margins[0], support_margins[1], 0.01):
+                        # see if we need to do a tripod leg move
+                        # (in reaction to turning for example)
+                        # start by seeing what legs are more stretched out
+                        max_leg: Leg = None
+                        max_angle = 0.0
+                        for leg in self.legs.values():
+                            polar = leg.polar
+                            if not max_leg or abs(polar.angle) > max_angle:
+                                max_leg = leg
+                                max_angle = abs(polar.angle)
+                        if max_angle > 0.21:   # 0.21 radians => ~6 degrees
+                            for s in self.tripod_set:
+                                if max_leg.name in s:
+                                    move_tripod_set = s
 
-                    if False and max_angle > 0.35:    # 20 degrees
-                        # move the set of legs that includes this leg
-                        for s in self.tripod_set:
-                            if max_leg.name in s:
-                                # move this set
-                                self.step_tripod_set(s, target_angle)
-                                return
+                    if not move_tripod_set and len(support_margins) == 2:
+                        # choose the tripod set with the lowest support margin
+                        move_tripod_set = self.tripod_set[0] \
+                            if support_margins[0] < support_margins[1] else self.tripod_set[1]
+
+                    # todo: if still no set selected, see if we need an adjustment due to positional error
+
+                    if move_tripod_set:
+                        self.step_tripod_set(move_tripod_set, target_angle)
 
                     # see if there is a leg needing adjustment due to large position error
-                    return
-                    leg = max(self.legs.values(), key=attrgetter('error'))
-                    if leg.error > 0.02:
-                        print(f'adjusting {leg.name}   e: {leg.error}')
-                        self.leg_goal = self.trajectory(self.leg_adjustment(leg))
-                        return
+                    #return
+                    #leg = max(self.legs.values(), key=attrgetter('error'))
+                    #if leg.error > 0.02:
+                    #    print(f'adjusting {leg.name}   e: {leg.error}')
+                    #    self.leg_goal = self.trajectory(self.leg_adjustment(leg))
+                    #    return
 
         else:
             print('entering standing state')
