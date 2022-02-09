@@ -876,7 +876,7 @@ class Hexapod(Node):
                 default_segment_trajectory_msg(
                     leg.foot_link,
                     velocity=0.05,
-                    acceleration=0.01,
+                    acceleration=0.03,
                     mode_out=SegmentTrajectory.SUPPORT,
                     points=[leg.to_rect(PolarCoord(
                         angle=0.0,  # was 0.4
