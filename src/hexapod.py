@@ -565,14 +565,23 @@ class Hexapod(Node):
 
         def execute_unit(unit: PathTrajectory or LinearTrajectory) -> rclpy.task.Future:
             if isinstance(unit, PathTrajectory):
-                print(f'executing coordinated trajectory {unit.id}')
-                return self.coordinated_trajectory(
-                    goals=unit.goal,
-                    id=unit.id,
-                    sync_duration=unit.synchronize,
-                    complete=complete_unit,
-                    progress=unit.progress,
-                    rejected=rejected_unit)
+                if isinstance(unit.goal, list):
+                    print(f'executing coordinated trajectory {unit.id}')
+                    return self.coordinated_trajectory(
+                        goals=unit.goal,
+                        id=unit.id,
+                        sync_duration=unit.synchronize,
+                        complete=complete_unit,
+                        progress=unit.progress,
+                        rejected=rejected_unit)
+                else:
+                    print(f'executing single trajectory {unit.id}')
+                    return self.single_trajectory(
+                        goal=unit.goal,
+                        id=unit.id,
+                        complete=complete_unit,
+                        progress=unit.progress,
+                        rejected=rejected_unit)
             elif isinstance(unit, LinearTrajectory):
                 print(f'executing linear trajectory {unit.id}')
                 return self.linear_trajectory(
