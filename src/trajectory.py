@@ -45,7 +45,8 @@ class PathTrajectory(Trajectory):
             complete=complete,
             progress=progress,
             rejected=rejected)
-        self.goal = goal
+        # todo: re-enable single trajectory action (for now, we'll stick with the multi one always)
+        self.goal = goal if isinstance(goal, list) else [goal]
 
 
 class LinearTrajectory(Trajectory):
