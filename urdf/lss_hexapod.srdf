@@ -49,7 +49,7 @@
         <group name="right_middle_leg" />
         <group name="right_back_leg" />
     </group>
-    <group name="all">
+    <group name="legs">
         <group name="left_front_leg" />
         <group name="left_middle_leg" />
         <group name="left_back_leg" />
@@ -58,12 +58,12 @@
         <group name="right_back_leg" />
     </group>
 
-    <end_effector name="left-front-foot" parent_link="left-front-foot" group="left_front_leg" />
-    <end_effector name="left-middle-foot" parent_link="left-middle-foot" group="left_middle_leg" />
-    <end_effector name="left-back-foot" parent_link="left-back-foot" group="left_back_leg" />
-    <end_effector name="right-front-foot" parent_link="right-front-foot" group="right_front_leg" />
-    <end_effector name="right-middle-foot" parent_link="right-middle-foot" group="right_middle_leg" />
-    <end_effector name="right-back-foot" parent_link="right-back-foot" group="right_back_leg" />
+    <end_effector name="left-front-foot" parent_link="left-front-hip-span1" group="left_front_leg" />
+    <end_effector name="left-middle-foot" parent_link="left-middle-hip-span1" group="left_middle_leg" />
+    <end_effector name="left-back-foot" parent_link="left-back-hip-span1" group="left_back_leg" />
+    <end_effector name="right-front-foot" parent_link="right-front-hip-span1" group="right_front_leg" />
+    <end_effector name="right-middle-foot" parent_link="right-middle-hip-span1" group="right_middle_leg" />
+    <end_effector name="right-back-foot" parent_link="right-back-hip-span1" group="right_back_leg" />
 
     <rotor_params>
         <joint name="J11" mass="1.0" gear_ratio="1.0" />
@@ -115,7 +115,7 @@
     <disable_collisions link1="RKnee" link2="r_sole" reason="Adjacent" />
     -->
 
-    <group_state group="all" name="default">
+    <group_state group="legs" name="default">
         <joint name="root_link" value="0 0 0.18 0. 0. 0. 0." />
         <joint name="J11" value="0.0" />
         <joint name="J12" value="0.0" />
