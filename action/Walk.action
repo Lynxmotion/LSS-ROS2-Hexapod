@@ -1,0 +1,7 @@
+float32 speed
+float32 heading
+---
+float32 total_distance
+---
+geometry_msgs/Vector3 odom
+float32 heading
