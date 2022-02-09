@@ -62,6 +62,15 @@ def generate_launch_description():
     #    output='screen',
     #    parameters=[robot_controllers])
 
+    controller_manager = Node(
+        package='controller_manager',
+        executable='ros2_control_node',
+        parameters=[robot_description, robot_controllers],
+        output={
+          'stdout': 'screen',
+          'stderr': 'screen',
+        })
+
     imu = Node(
         name="imu",
         package='bno055_driver',
@@ -74,18 +83,31 @@ def generate_launch_description():
         executable="ppm_input",
         output="screen")
 
+
+    joint_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"])
+
+    position_trajectory_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["position_trajectory_controller", "--controller-manager", "/controller_manager"])
+
+    effort_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["effort_controller", "--controller-manager", "/controller_manager"])
+
+
     return LaunchDescription([
-      Node(
-        package='controller_manager',
-        executable='ros2_control_node',
-        parameters=[robot_description, robot_controllers],
-        output={
-          'stdout': 'screen',
-          'stderr': 'screen',
-          },
-        ),
+        controller_manager,
         imu,
-        joystick
+        joystick,
         #joint_state_publisher_node,
         #robot_state_publisher_node
+        joint_state_broadcaster_spawner,
+        position_trajectory_controller_spawner,
+        effort_controller_spawner
     ])
+
