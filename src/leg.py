@@ -178,7 +178,9 @@ class Leg:
             #print(f'   {p:2.1f} => {v} => {r[0]} {r[1]} {r[2]}')
             return to_vector3(r)
 
-        return [default_segment_trajectory_msg(
+        return (
+            # return the two segments as a tuple
+            default_segment_trajectory_msg(
                 self.foot_link,
                 velocity=velocity,
                 reference_frame='base_link',
@@ -194,4 +196,4 @@ class Leg:
                 points=[get_point(d / 10) for d in range(5, 11)],
                 # rotations=[])
                 rotations=[to_quaternion(self.rect.M)]),
-            ]
+            )

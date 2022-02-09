@@ -27,6 +27,12 @@ class NoisyNumber:
         self.trigger_callback = None
         self.last_event_value = value
 
+    def set(self, v: float, trigger: bool = False):
+        self.latest = self.filtered = v
+        if trigger and self.trigger_callback:
+            self.trigger_callback(self.filtered)
+            self.last_event_value = self.filtered
+
     def filter(self, v: float):
         now = datetime.datetime.now()
         if (now - self.updated).seconds > 5.0 or (self.jump and abs(v - self.filtered) > self.jump):
