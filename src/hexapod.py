@@ -43,7 +43,10 @@ class Hexapod(Node):
     TURNING = 3
     SHIFT_LEG = 4
 
-    tasks = None
+    # if this value is >0 it is the number of spin loops before shutting down
+    # give a few spin loops allows pending actions to complete or cancel
+    # any value >=1000 means forever
+    shutdown: int = 1000
 
     previewMode = False
     # preview_prefix - make it so we just set this to the prefix we want to base our trajectories on
@@ -103,7 +106,6 @@ class Hexapod(Node):
 
     def __init__(self, args):
         super().__init__('hexapod')
-        self.shutdown = False
 
         self.state = RobotState()
         self.support_margin = math.nan
@@ -945,12 +947,14 @@ class Hexapod(Node):
     def ctrl_c(self, signum, frame):
         print(f'shutdown requested by {signum}')
         self.cancel_base_motion()
-        self.shutdown = True
+        self.shutdown = 5
 
     def run(self):
         try:
-            while rclpy.ok() and not self.shutdown:
+            while rclpy.ok() and self.shutdown > 0:
                 rclpy.spin_once(self, timeout_sec=0)
+            if self.shutdown < 1000:
+                self.shutdown -= 1
         except KeyboardInterrupt:
             print('shutting down')
         rclpy.shutdown()
@@ -961,9 +965,6 @@ def main(args=sys.argv):
     node = Hexapod(args)
     signal.signal(signal.SIGINT, node.ctrl_c)
     node.clear_trajectory()
-    #node.stand_and_sit()
-    #node.stand_up()
-    #node.walk(math.pi/2, 0.5)
     node.set_gait(node.tripod_gait)
     node.run()
 
