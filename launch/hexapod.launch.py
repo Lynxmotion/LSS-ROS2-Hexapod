@@ -60,6 +60,16 @@ def generate_launch_description():
             '-targets', '*,gazebo']
     )
 
+    srdf_publisher = Node(
+        package='resource_publisher',
+        executable='resource_publisher',
+        output='screen',
+        arguments=[
+            '-package', 'lss_hexapod',
+            '-xacro', 'urdf/lss_hexapod.srdf',
+            '-topic', 'robot_description/srdf']
+    )
+
     localization = Node(
         name='localization',
         package='robot_localization',
@@ -107,6 +117,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         urdf_publisher,
+        srdf_publisher,
         #localization,
         robot_dynamics_container,
         rviz_node
