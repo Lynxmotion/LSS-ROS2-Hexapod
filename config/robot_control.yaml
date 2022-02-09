@@ -1,0 +1,26 @@
+frequency: 40.0
+publish_state_frequency: 20.0
+preview_frequency: 15.0
+progress_frequency: 10.0
+self_manage: true
+joint_controller: position_trajectory_controller
+joint_names:
+  - J11
+  - J12
+  - J13
+  - J21
+  - J22
+  - J23
+  - J31
+  - J32
+  - J33
+  - J41
+  - J42
+  - J43
+  - J51
+  - J52
+  - J53
+  - J61
+  - J62
+  - J63
+
