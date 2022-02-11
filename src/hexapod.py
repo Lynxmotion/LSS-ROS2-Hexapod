@@ -426,7 +426,7 @@ class Hexapod(Node):
             self.walking_speed.filter(msg.walking_speed / 60.0)
 
     def joy_callback(self, msg: Joy):
-        heading = msg.axes[self.YAW] * 20.0
+        heading = msg.axes[self.YAW] * -20.0
         walking_speed = lift(0.06, msg.axes[self.THROTTLE] / 32.0)
         if msg.buttons[self.REVERSE]:
             walking_speed = -walking_speed
