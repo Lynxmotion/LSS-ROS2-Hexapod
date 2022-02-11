@@ -81,6 +81,7 @@ def generate_launch_description():
     joystick = Node(
         package="rpi_ppm_input",
         executable="ppm_input",
+        arguments=["r8fm"],
         output="screen")
 
 
