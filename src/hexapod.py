@@ -13,6 +13,7 @@ from rclpy.action import ActionClient, ActionServer, GoalResponse, CancelRespons
 from rclpy.action.client import ClientGoalHandle, GoalStatus
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float64MultiArray, String
+from sensor_msgs.msg import Joy
 from robot_model_msgs.msg import ModelState, ControlState, Limb, \
     TrajectoryProgress, TrajectoryComplete, SegmentTrajectory
 from robot_model_msgs.action import EffectorTrajectory, CoordinatedEffectorTrajectory, LinearEffectorTrajectory
@@ -35,6 +36,19 @@ from trajectory import PathTrajectory, LinearTrajectory
 DynamicObject = lambda **kwargs: type("Object", (), kwargs)
 
 
+def lift(offset: float, v: float):
+    """ if value is non-zero, add an offset to lift the value to a minimum value.
+        This is useful for providing a minimum amount of power or speed to a movement. Works with
+        negative and positive numbers.
+    """
+    if v < 0.0:
+        return v + -offset
+    elif v > 0.0:
+        return v + offset
+    else:
+        return 0.0
+
+
 class Hexapod(Node):
     # gait states
     IDLE = 0
@@ -42,6 +56,22 @@ class Hexapod(Node):
     WALKING = 2
     TURNING = 3
     SHIFT_LEG = 4
+
+    # Joystick Axes
+    ROLL = 0
+    PITCH = 1
+    THROTTLE = 2
+    YAW = 3
+    TRIM_POT = 4
+
+    # Joystick buttons
+    RIGHT_3WAY = 0
+    LEFT_3WAY = 1
+    RIGHT_BUTTON = 2
+
+    # Joystick assignments
+    REVERSE = RIGHT_BUTTON
+
 
     # if this value is >0 it is the number of spin loops before shutting down
     # give a few spin loops allows pending actions to complete or cancel
@@ -213,6 +243,13 @@ class Hexapod(Node):
             Motion,
             '/hexapod/motion',
             self.motion_callback,
+            best_effort_profile)
+
+        # subscribe to radio channels
+        self.radio_sub = self.create_subscription(
+            Joy,
+            '/input/ppm',
+            self.joy_callback,
             best_effort_profile)
 
         self.walk_goal = None
@@ -387,6 +424,21 @@ class Hexapod(Node):
             # update turn rate, converted to radians
             self.turn_rate.filter(msg.heading * math.pi / 180.0)
             self.walking_speed.filter(msg.walking_speed / 60.0)
+
+    def joy_callback(self, msg: Joy):
+        heading = msg.axes[self.YAW] * 20.0
+        walking_speed = lift(0.06, msg.axes[self.THROTTLE] / 32.0)
+        if msg.buttons[self.REVERSE]:
+            walking_speed = -walking_speed
+
+        if near_zero(heading) and near_zero(walking_speed):
+            self.cancel_base_motion()
+            self.turn_rate.set(0)
+            self.walking_speed.set(0)
+        else:
+            # update turn rate, converted to radians
+            self.turn_rate.filter(heading * math.pi / 180.0)
+            self.walking_speed.filter(walking_speed)
 
     def clear(self, target_state: bool = False, trajectories: bool = False, limp: bool = False):
         self.reset_client.wait_for_service()
