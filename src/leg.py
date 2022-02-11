@@ -129,7 +129,7 @@ class Leg:
     def lift(self, polar: PolarCoord, velocity: float, lift: float = 0.02):
         fr = self.polar
 
-        print(f'lift leg {self.name} from {fr} => {polar}')
+        #print(f'lift leg {self.name} from {fr} => {polar}')
         if math.isnan(polar.zlocal):
             polar.zlocal = fr.zlocal
         tw_dist = Tween(fr, polar)

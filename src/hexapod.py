@@ -711,12 +711,12 @@ class Hexapod(Node):
         def done(result):
             if result.code != -5:
                 self.base_goal_handle = None
-            print('turn stopped')
+            print('turn => stop')
         # todo: do better checking than this
         if not self.current_base_twist or \
                 not near_equal(self.base_twist.vel, self.current_base_twist.vel, 0.01) or \
                 not near_equal(self.base_twist.rot, self.current_base_twist.rot, 0.01):
-            print(f'speed   linear: {self.base_twist.vel}   rot: {self.base_twist.rot}')
+            #print(f'speed   linear: {self.base_twist.vel}   rot: {self.base_twist.rot}')
             self.current_base_twist = kdl.Twist(self.base_twist.vel, self.base_twist.rot)
             self.base_goal_handle = self.linear_trajectory(
                 id='body',
@@ -743,13 +743,13 @@ class Hexapod(Node):
     def turn(self, speed: float):
         """" speed is in degrees/sec """
         rps = speed / 2*math.pi
-        print(f'turn => {rps} rot/sec')
+        print(f'turn => {round(rps * 60.0, 2)} rot/min')
         self.base_twist.rot.z(speed)
         self.update_base()
 
     def walk(self, speed: float):
         """" speed is in degrees/sec """
-        print(f'walk => {speed*100.0} cm/s')
+        print(f'walk => {round(speed*60.0, 2)} m/min')
         self.base_twist.vel.y(speed)
         self.update_base()
 
@@ -783,7 +783,7 @@ class Hexapod(Node):
             # compute the support margins of our leg sets
             # we can react with new trajectories if our support is suffering
             support_margins = [self.compute_support_margin(s) for s in self.tripod_set]
-            print(f'support margins: ', ', '.join([str(round(v, 4)) for v in support_margins]))
+            #print(f'support margins: ', ', '.join([str(round(v, 4)) for v in support_margins]))
 
         # check if our legs are already performing an active trajectory
         legs_active = self.are_legs_active()
@@ -862,7 +862,7 @@ class Hexapod(Node):
             if to.near(leg.polar, 0.08, 0.01):
                 # this leg is already close enough to destination
                 # no need to lift
-                print(f'supressing leg {leg.name}')
+                #print(f'supressing leg {leg.name}')
                 continue
 
             # single trajectory for up and down phase
@@ -888,7 +888,7 @@ class Hexapod(Node):
             if to.near(leg.polar, 0.08, 0.01):
                 # this leg is already close enough to destination
                 # no need to lift
-                print(f'supressing leg {leg.name}')
+                #print(f'supressing leg {leg.name}')
                 continue
 
             # separate trajectory for up and down phase
