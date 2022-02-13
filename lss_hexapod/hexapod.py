@@ -78,6 +78,7 @@ class Hexapod(Node):
     # give a few spin loops allows pending actions to complete or cancel
     # any value >=1000 means forever
     shutdown: int = 1000
+    shutdown_attempts: int = 0
 
     previewMode = False
     # preview_prefix - make it so we just set this to the prefix we want to base our trajectories on
@@ -1027,6 +1028,10 @@ class Hexapod(Node):
         print(f'shutdown requested by {signum}')
         self.cancel_base_motion()
         self.shutdown = 5
+        self.shutdown_attempts += 1
+        if self.shutdown_attempts >= 3:
+            # exit now
+            exit(-1)
 
     def run(self):
         try:
