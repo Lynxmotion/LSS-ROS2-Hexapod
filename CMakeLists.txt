@@ -13,6 +13,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -35,6 +36,8 @@ if(BUILD_TESTING)
     ament_lint_auto_find_test_dependencies()
 endif()
 
+ament_python_install_package(lss_hexapod)
+
 ament_export_dependencies(rosidl_default_runtime)
 ament_package()
 
@@ -43,3 +46,7 @@ foreach(dir config launch meshes urdf)
 		DESTINATION share/${PROJECT_NAME}/${dir})
 endforeach(dir)
 
+# install the hexapod executable
+install(PROGRAMS
+        scripts/hexapod
+        DESTINATION lib/${PROJECT_NAME})

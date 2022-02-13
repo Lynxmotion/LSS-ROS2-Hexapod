@@ -1,9 +1,9 @@
 import functools
 
 import PyKDL as kdl
-from polar import PolarCoord
 from geometry_msgs.msg import Vector3
 
+from .polar import PolarCoord
 
 class Tween:
     begin = 0.0

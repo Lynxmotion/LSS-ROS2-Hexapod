@@ -3,7 +3,7 @@ import math
 from geometry_msgs.msg import Vector3
 
 import PyKDL as kdl
-from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P, R
+from .tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P, R
 
 epsilon = 0.00001
 

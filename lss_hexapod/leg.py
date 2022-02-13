@@ -2,11 +2,11 @@ import math
 import typing
 
 import PyKDL as kdl
-from tf_conv import to_vector3, P, R, to_quaternion
+from .tf_conv import to_vector3, P, R, to_quaternion
 
-from polar import PolarCoord
-from tween import Tween
-from ros_trajectory_builder import default_segment_trajectory_msg
+from .polar import PolarCoord
+from .tween import Tween
+from .ros_trajectory_builder import default_segment_trajectory_msg
 
 from robot_model_msgs.msg import SegmentTrajectory
 #

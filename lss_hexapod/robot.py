@@ -3,13 +3,12 @@ from __future__ import annotations
 
 import math
 import typing
-
 import PyKDL as kdl
-from tf_conv import to_vector3, P, R
 
-from polar import PolarCoord
-from tween import Tween
-from ros_trajectory_builder import default_segment_trajectory_msg
+from .tf_conv import to_vector3, P, R
+from .polar import PolarCoord
+from .tween import Tween
+from .ros_trajectory_builder import default_segment_trajectory_msg
 
 
 

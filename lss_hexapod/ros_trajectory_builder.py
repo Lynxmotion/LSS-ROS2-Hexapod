@@ -16,8 +16,8 @@ from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
 from robot_model_msgs.msg import ModelState
 
-from joint import Joint, JointGroup
-from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P
+from .joint import Joint, JointGroup
+from .tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, P
 
 import unittest
 

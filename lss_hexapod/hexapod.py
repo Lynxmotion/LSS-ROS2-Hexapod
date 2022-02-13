@@ -21,17 +21,18 @@ from robot_model_msgs.srv import Reset, ConfigureLimb, SetLimb
 from lss_hexapod.msg import Motion
 from lss_hexapod.action import Walk, Rotate
 from scipy.spatial import ConvexHull
-
-from robot import RobotState
-from noisy import NoisyNumber
-from ros_trajectory_builder import default_segment_trajectory_msg
 import PyKDL as kdl
 from urdf_parser_py.urdf import URDF
-from tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, to_geo_twist, P, R
 
-from polar import PolarCoord, near_equal, near_zero
-from leg import Leg, each_leg, tripod_set
-from trajectory import PathTrajectory, LinearTrajectory
+# relative imports
+from .robot import RobotState
+from .noisy import NoisyNumber
+from .ros_trajectory_builder import default_segment_trajectory_msg
+from .tf_conv import to_kdl_rotation, to_kdl_vector, to_kdl_frame, to_vector3, to_transform, to_quaternion, to_geo_twist, P, R
+
+from .polar import PolarCoord, near_equal, near_zero
+from .leg import Leg, each_leg, tripod_set
+from .trajectory import PathTrajectory, LinearTrajectory
 
 DynamicObject = lambda **kwargs: type("Object", (), kwargs)
 
