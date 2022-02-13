@@ -90,12 +90,19 @@ def generate_launch_description():
             output='screen'
     )
 
+    hexapod_control = Node(
+        package="lss_hexapod",
+        executable="hexapod",
+        arguments=[],
+        output="screen")
+
     return LaunchDescription([
         launch.actions.DeclareLaunchArgument('hardware', default_value='motion'),
         IncludeLaunchDescription(PythonLaunchDescriptionSource([ThisLaunchFileDir(),'/',LaunchConfiguration('hardware'), '.launch.py'])),
         urdf_publisher,
         srdf_publisher,
-        robot_dynamics_container
+        robot_dynamics_container,
+        hexapod_control
     ])
 
 
